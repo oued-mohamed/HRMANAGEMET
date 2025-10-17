@@ -1051,6 +1051,115 @@ class OdooService {
     }
   }
 
+  // Get direct reports for the current manager
+  Future<List<Map<String, dynamic>>> getDirectReports() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('🔍 Getting direct reports for manager: $employeeId');
+
+      // First, let's debug the current employee details
+      final currentEmployee = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['id', 'name', 'parent_id', 'job_id', 'department_id']
+        }
+      ]);
+
+      print('👤 Current employee details: $currentEmployee');
+
+      // Get employees where parent_id is the current employee
+      final directReports = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'search_read',
+        [
+          [
+            ['parent_id', '=', employeeId]
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'name',
+            'job_id',
+            'work_email',
+            'work_phone',
+            'department_id',
+            'parent_id',
+            'image_1920',
+          ],
+          'order': 'name asc',
+        }
+      ]);
+
+      print(
+          '📊 Direct reports found: ${directReports is List ? directReports.length : 0}');
+      print('📋 Direct reports data: $directReports');
+
+      // If no direct reports found, let's try to find all employees to debug
+      if (directReports is List && directReports.isEmpty) {
+        print('🔄 No direct reports found, checking all employees...');
+
+        final allEmployees = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.employee',
+          'search_read',
+          [[]], // No filter
+          {
+            'fields': ['id', 'name', 'parent_id', 'job_id'],
+            'limit': 20,
+          }
+        ]);
+
+        print('👥 All employees (first 20): $allEmployees');
+
+        // Check if any employees have this manager as parent
+        if (allEmployees is List) {
+          for (var emp in allEmployees) {
+            if (emp is Map && emp['parent_id'] is List) {
+              final parentId = emp['parent_id'][0];
+              print(
+                  '🔍 Employee ${emp['name']} has parent_id: $parentId (looking for: $employeeId)');
+            }
+          }
+        }
+      }
+
+      if (directReports is List) {
+        final List<Map<String, dynamic>> validReports = [];
+        for (var item in directReports) {
+          if (item is Map<String, dynamic>) {
+            validReports.add(item);
+          } else {
+            print(
+                '⚠️ Warning: Skipping non-map item in direct reports: ${item.runtimeType} - $item');
+          }
+        }
+        return validReports;
+      } else {
+        print(
+            '⚠️ Warning: directReports is not a List, got ${directReports.runtimeType}: $directReports');
+      }
+      return [];
+    } catch (e) {
+      print('❌ Error fetching direct reports: $e');
+      return [];
+    }
+  }
+
   // Get all employees under Mitchell's management hierarchy (CEO view)
   Future<List<Map<String, dynamic>>> getAllEmployeesUnderManagement() async {
     if (_userId == null || _password == null) {
@@ -1859,10 +1968,90 @@ class OdooService {
     }
   }
 
+  // Method to discover available models
+  Future<List<String>> getAvailableModels() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      // Get all models that start with 'hr.' (HR related)
+      final models = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'ir.model', // Model that contains all models
+        'search_read',
+        [
+          [
+            ['model', 'like', 'hr.%']
+          ] // Filter: models starting with 'hr.'
+        ],
+        {
+          'fields': ['model', 'name'],
+          'order': 'model asc',
+        }
+      ]);
+
+      if (models is List) {
+        final List<String> modelNames = [];
+        for (var model in models) {
+          if (model is Map<String, dynamic> && model['model'] != null) {
+            modelNames.add(model['model'].toString());
+          }
+        }
+        return modelNames;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching models: $e');
+      return [];
+    }
+  }
+
+  // Method to get fields of a specific model
+  Future<List<Map<String, dynamic>>> getModelFields(String modelName) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final fields = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'ir.model.fields', // Model that contains all fields
+        'search_read',
+        [
+          [
+            ['model', '=', modelName]
+          ] // Filter: fields for specific model
+        ],
+        {
+          'fields': ['name', 'field_description', 'ttype', 'required'],
+          'order': 'name asc',
+        }
+      ]);
+
+      if (fields is List) {
+        final List<Map<String, dynamic>> fieldList = [];
+        for (var field in fields) {
+          if (field is Map<String, dynamic>) {
+            fieldList.add(field);
+          }
+        }
+        return fieldList;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching fields for $modelName: $e');
+      return [];
+    }
+  }
+
   // Logout
   Future<void> logout() async {
     _userId = null;
-    // _sessionId = null; // Reserved for future session-based authentication
     _password = null;
   }
 

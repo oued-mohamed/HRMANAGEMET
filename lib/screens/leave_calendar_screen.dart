@@ -308,12 +308,19 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${_getMonthName(_selectedDay.month)} ${_selectedDay.year}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontSize: headerFontSize,
-                        ),
+                  // Combined Month and Year Selection (Plain Text)
+                  GestureDetector(
+                    onTap: () => _showMonthYearPicker(context),
+                    child: Text(
+                      '${_getMonthName(_selectedDay.month)} ${_selectedDay.year}',
+                      style: TextStyle(
+                        fontSize: headerFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
+                  // Navigation Arrows
                   Row(
                     children: [
                       IconButton(
@@ -409,6 +416,152 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
     return months[month - 1];
   }
 
+  void _showMonthYearPicker(BuildContext context) {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(10, (index) => currentYear - 5 + index);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Sélectionner le mois et l\'année'),
+          content: Container(
+            width: 300,
+            height: 400,
+            child: Column(
+              children: [
+                // Year Selection
+                Text(
+                  'Année',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Container(
+                  height: 120,
+                  child: GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      childAspectRatio: 2,
+                      crossAxisSpacing: 4,
+                      mainAxisSpacing: 4,
+                    ),
+                    itemCount: years.length,
+                    itemBuilder: (context, index) {
+                      final year = years[index];
+                      final isSelected = year == _selectedDay.year;
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedDay = DateTime(year, _selectedDay.month);
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Color(0xFF000B58)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Color(0xFF000B58)
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$year',
+                              style: TextStyle(
+                                color:
+                                    isSelected ? Colors.white : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                SizedBox(height: 16),
+                // Month Selection
+                Text(
+                  'Mois',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Expanded(
+                  child: GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (context, index) {
+                      final month = index + 1;
+                      final isSelected = month == _selectedDay.month;
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedDay = DateTime(_selectedDay.year, month);
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Color(0xFF000B58)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Color(0xFF000B58)
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _getMonthName(month),
+                              style: TextStyle(
+                                color:
+                                    isSelected ? Colors.white : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   List<Widget> _buildCalendarRows(
     int firstDayWeekday,
     int daysInMonth,
@@ -421,11 +574,11 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
     final isTablet = screenWidth > 600;
 
     // Calculate responsive dimensions
-    final cellHeight = isMobile ? 36.0 : (isTablet ? 48.0 : 40.0);
-    final cellMargin = isMobile ? 1.5 : 2.0;
+    final cellHeight = isMobile ? 52.0 : (isTablet ? 68.0 : 60.0);
+    final cellMargin = isMobile ? 2.0 : 2.5;
     final borderRadius = isMobile ? 16.0 : 20.0;
     final indicatorSize = isMobile ? 6.0 : 8.0;
-    final fontSize = isMobile ? 13.0 : (isTablet ? 16.0 : 14.0);
+    final fontSize = isMobile ? 14.0 : (isTablet ? 17.0 : 15.0);
 
     List<Widget> rows = [];
     List<Widget> currentRow = [];
@@ -613,13 +766,13 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
         final isMobile = screenWidth < 400;
         final isTablet = screenWidth > 600;
 
-        // Calculate responsive dimensions
-        final margin = isMobile ? 8.0 : (isTablet ? 20.0 : 16.0);
-        final padding = isMobile ? 12.0 : (isTablet ? 20.0 : 16.0);
-        final borderRadius = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
-        final dateFontSize = isMobile ? 24.0 : (isTablet ? 40.0 : 32.0);
+        // Calculate responsive dimensions - Match leave cards exactly
+        final margin = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
+        final padding = isMobile ? 16.0 : (isTablet ? 24.0 : 20.0);
+        final borderRadius = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
+        final dateFontSize = isMobile ? 20.0 : (isTablet ? 24.0 : 22.0);
         final subtitleFontSize = isMobile ? 14.0 : (isTablet ? 18.0 : 16.0);
-        final spacing = isMobile ? 8.0 : (isTablet ? 20.0 : 16.0);
+        final spacing = isMobile ? 6.0 : (isTablet ? 10.0 : 8.0);
 
         return Container(
           margin: EdgeInsets.all(margin),
@@ -666,9 +819,9 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                       Text(
                         'Jour férié',
                         style: TextStyle(
-                          fontSize: isMobile ? 12.0 : 14.0,
+                          fontSize: isMobile ? 14.0 : 16.0,
                           color: Colors.red,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -697,10 +850,10 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
     final isMobile = screenWidth < 400;
     final isTablet = screenWidth > 600;
 
-    final iconSize = isMobile ? 36.0 : (isTablet ? 60.0 : 48.0);
-    final titleFontSize = isMobile ? 16.0 : (isTablet ? 22.0 : 18.0);
-    final subtitleFontSize = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
-    final spacing = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
+    final iconSize = isMobile ? 32.0 : (isTablet ? 40.0 : 36.0);
+    final titleFontSize = isMobile ? 16.0 : (isTablet ? 20.0 : 18.0);
+    final subtitleFontSize = isMobile ? 14.0 : (isTablet ? 18.0 : 16.0);
+    final spacing = isMobile ? 6.0 : (isTablet ? 10.0 : 8.0);
 
     return Column(
       children: [
@@ -736,10 +889,10 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
     final isMobile = screenWidth < 400;
     final isTablet = screenWidth > 600;
 
-    final iconSize = isMobile ? 36.0 : (isTablet ? 60.0 : 48.0);
-    final titleFontSize = isMobile ? 16.0 : (isTablet ? 22.0 : 18.0);
-    final subtitleFontSize = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
-    final spacing = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
+    final iconSize = isMobile ? 32.0 : (isTablet ? 40.0 : 36.0);
+    final titleFontSize = isMobile ? 16.0 : (isTablet ? 20.0 : 18.0);
+    final subtitleFontSize = isMobile ? 14.0 : (isTablet ? 18.0 : 16.0);
+    final spacing = isMobile ? 6.0 : (isTablet ? 10.0 : 8.0);
 
     return Column(
       children: [
@@ -807,16 +960,16 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
     final reason = leave['name'] ?? 'Aucune raison spécifiée';
     final status = leave['status'] == 'approved' ? 'Approuvé' : 'En attente';
     final statusColor =
-        leave['status'] == 'approved' ? Color(0xFF35BF8C) : Colors.orange;
+        leave['status'] == 'approved' ? const Color(0xFF35BF8C) : Colors.orange;
 
-    // Calculate responsive dimensions
-    final margin = isMobile ? 4.0 : (isTablet ? 12.0 : 8.0);
-    final padding = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
-    final borderRadius = isMobile ? 6.0 : (isTablet ? 12.0 : 8.0);
-    final titleFontSize = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
-    final subtitleFontSize = isMobile ? 10.0 : (isTablet ? 14.0 : 12.0);
-    final smallFontSize = isMobile ? 9.0 : (isTablet ? 13.0 : 11.0);
-    final spacing = isMobile ? 2.0 : (isTablet ? 6.0 : 4.0);
+    // Calculate responsive dimensions - Made bigger
+    final margin = isMobile ? 8.0 : (isTablet ? 16.0 : 12.0);
+    final padding = isMobile ? 16.0 : (isTablet ? 24.0 : 20.0);
+    final borderRadius = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
+    final titleFontSize = isMobile ? 16.0 : (isTablet ? 20.0 : 18.0);
+    final subtitleFontSize = isMobile ? 14.0 : (isTablet ? 18.0 : 16.0);
+    final smallFontSize = isMobile ? 12.0 : (isTablet ? 16.0 : 14.0);
+    final spacing = isMobile ? 6.0 : (isTablet ? 10.0 : 8.0);
 
     return Container(
       margin: EdgeInsets.only(bottom: margin),
@@ -844,12 +997,12 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
               ),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 6 : 8,
-                  vertical: isMobile ? 2 : 4,
+                  horizontal: isMobile ? 12 : 16,
+                  vertical: isMobile ? 6 : 8,
                 ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
+                  borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
                 ),
                 child: Text(
                   status,
@@ -968,13 +1121,12 @@ class _Legend extends StatelessWidget {
       );
     }
 
-    return Wrap(
-      spacing: spacing,
-      runSpacing: runSpacing,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        item(Color(0xFF35BF8C), 'Congé approuvé'),
-        item(Colors.orange.shade400, 'Congé en attente'),
-        item(Colors.red.shade400, 'Jours fériés'),
+        Flexible(child: item(const Color(0xFF35BF8C), 'Congé approuvé')),
+        Flexible(child: item(Colors.orange.shade400, 'Congé en attente')),
+        Flexible(child: item(Colors.red.shade400, 'Jours fériés')),
       ],
     );
   }

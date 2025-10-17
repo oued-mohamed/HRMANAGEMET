@@ -168,7 +168,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       case 'confirm':
         return Colors.orange;
       case 'validate':
-        return Color(0xFF35BF8C);
+        return const Color(0xFF35BF8C);
       case 'refuse':
         return Colors.red;
       case 'draft':
@@ -528,13 +528,13 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approuver'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF35BF8C).withOpacity(0.1),
-                        foregroundColor: Color(0xFF35BF8C),
+                        backgroundColor: const Color(0xFF35BF8C).withOpacity(0.1),
+                        foregroundColor: const Color(0xFF35BF8C),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                           side: BorderSide(
-                              color: Color(0xFF35BF8C).withOpacity(0.3)),
+                              color: const Color(0xFF35BF8C).withOpacity(0.3)),
                         ),
                       ),
                     ),

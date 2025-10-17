@@ -177,7 +177,7 @@ class CompanySelectionScreen extends StatelessWidget {
       case UserRole.employee:
         return Colors.blue;
       case UserRole.hr:
-        return Color(0xFF35BF8C);
+        return const Color(0xFF35BF8C);
       case UserRole.manager:
         return Colors.orange;
     }

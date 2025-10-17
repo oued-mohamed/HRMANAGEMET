@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
+import '../services/notification_service.dart';
 
 class EmployeeDrawer extends StatefulWidget {
   const EmployeeDrawer({super.key});
@@ -227,7 +228,9 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                           ],
                         ),
 
-                        // 4. Paie & avantages
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 5. Paie & avantages
                         _buildExpandableMenuItem(
                           context: context,
                           localizations: localizations,
@@ -271,40 +274,24 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                         ),
 
                         // 5. Notifications
+                        _buildNotificationTile(localizations),
+
+                        // Debug: Model Explorer (temporary)
                         ListTile(
                           leading: const Icon(
-                            Icons.notifications_outlined,
+                            Icons.bug_report,
                             color: Colors.white,
                           ),
-                          title: Text(
-                            localizations.translate('notifications'),
-                            style: const TextStyle(
+                          title: const Text(
+                            'Model Explorer',
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                             ),
                           ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              '3',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                           onTap: () {
                             Navigator.pop(context);
-                            _showSnackBar(context,
-                                localizations.translate('notifications'));
+                            Navigator.pushNamed(context, '/model-explorer');
                           },
                         ),
                       ],
@@ -418,6 +405,64 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
         size: 40,
         color: Color(0xFF000B58),
       ),
+    );
+  }
+
+  Widget _buildNotificationTile(AppLocalizations localizations) {
+    return StreamBuilder<int>(
+      stream: Stream.periodic(const Duration(seconds: 1))
+          .map((_) => NotificationService().unreadCount),
+      initialData: NotificationService().unreadCount,
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return ListTile(
+          leading: Stack(
+            children: [
+              const Icon(
+                Icons.notifications_outlined,
+                color: Colors.white,
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: Text(
+            localizations.translate('notifications'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/employee-notifications');
+          },
+        );
+      },
     );
   }
 

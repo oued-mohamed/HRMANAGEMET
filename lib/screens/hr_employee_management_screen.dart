@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/hr_drawer.dart';
+import '../services/notification_service.dart';
 
 class HREmployeeManagementScreen extends StatefulWidget {
   const HREmployeeManagementScreen({super.key});
@@ -27,14 +28,30 @@ class _HREmployeeManagementScreenState
   Future<void> _loadEmployees() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch all employees under Mitchell's management hierarchy (CEO view)
-      final employees = await OdooService().getAllEmployeesUnderManagement();
-      setState(() {
-        _employees = employees;
-        _isLoading = false;
-      });
+      // Fetch only direct reports for the current manager
+      // This ensures managers can only assign tasks to their direct team members
+      final employees = await OdooService().getDirectReports();
+
+      // If no direct reports found, try fallback method for debugging
+      if (employees.isEmpty) {
+        print('🔄 No direct reports found, trying fallback method...');
+        final fallbackEmployees =
+            await OdooService().getAllEmployeesUnderManagement();
+        print(
+            '📊 Fallback method returned ${fallbackEmployees.length} employees');
+
+        setState(() {
+          _employees = fallbackEmployees;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _employees = employees;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print('Error loading all employees under management: $e');
+      print('Error loading direct reports: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -119,7 +136,7 @@ class _HREmployeeManagementScreenState
                             ),
                           ),
                           Text(
-                            '${_employees.length} Employé(s)',
+                            '${_employees.length} ${localizations.translate('my_direct_reports')}',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white.withOpacity(0.9),
@@ -205,7 +222,7 @@ class _HREmployeeManagementScreenState
                                   crossAxisCount: isTablet ? 3 : 2,
                                   mainAxisSpacing: 16,
                                   crossAxisSpacing: 16,
-                                  childAspectRatio: 0.75,
+                                  childAspectRatio: 0.65,
                                 ),
                                 itemCount: _filteredEmployees.length,
                                 itemBuilder: (context, index) {
@@ -330,12 +347,366 @@ class _HREmployeeManagementScreenState
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(height: 12),
+                // Assign Task Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        _showAssignTaskDialog(employee, localizations),
+                    icon: const Icon(Icons.assignment, size: 16),
+                    label: Text(
+                      localizations.translate('assign_task'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF35BF8C),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _showAssignTaskDialog(
+      Map<String, dynamic> employee, AppLocalizations localizations) {
+    final taskTitleController = TextEditingController();
+    final taskDescriptionController = TextEditingController();
+    String selectedPriority = 'medium_priority';
+    DateTime selectedDueDate = DateTime.now().add(const Duration(days: 7));
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.assignment, color: Color(0xFF35BF8C)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      localizations.translate('assign_task'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Employee Info
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF000B58).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, color: Color(0xFF000B58)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  employee['name']?.toString() ?? 'Unknown',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF000B58),
+                                  ),
+                                ),
+                                Text(
+                                  employee['job_id'] is List
+                                      ? employee['job_id'][1].toString()
+                                      : 'No Position',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Title
+                    Text(
+                      localizations.translate('task_title'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskTitleController,
+                      decoration: InputDecoration(
+                        hintText: localizations.translate('task_title'),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Description
+                    Text(
+                      localizations.translate('task_description'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskDescriptionController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: localizations.translate('task_description'),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Priority Selection
+                    Text(
+                      localizations.translate('task_priority'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: selectedPriority,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'high_priority',
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(localizations.translate('high_priority')),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'medium_priority',
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: Colors.orange,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(localizations.translate('medium_priority')),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'low_priority',
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(localizations.translate('low_priority')),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedPriority = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Due Date
+                    Text(
+                      localizations.translate('task_due_date'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDueDate,
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null) {
+                          setState(() {
+                            selectedDueDate = date;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today,
+                                color: Color(0xFF35BF8C)),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${selectedDueDate.day}/${selectedDueDate.month}/${selectedDueDate.year}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    localizations.translate('cancel'),
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (taskTitleController.text.isNotEmpty) {
+                      _assignTask(
+                        employee,
+                        taskTitleController.text,
+                        taskDescriptionController.text,
+                        selectedPriority,
+                        selectedDueDate,
+                        localizations,
+                      );
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF35BF8C),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(localizations.translate('assign')),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _assignTask(
+    Map<String, dynamic> employee,
+    String title,
+    String description,
+    String priority,
+    DateTime dueDate,
+    AppLocalizations localizations,
+  ) {
+    // Add notification using NotificationService
+    NotificationService().addNotification(
+      title: title,
+      description: description,
+      priority: priority,
+      dueDate: dueDate,
+      assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
+      assignedToName: employee['name']?.toString() ?? 'Unknown',
+    );
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${localizations.translate('task_assigned_successfully')} - ${employee['name']}',
+        ),
+        backgroundColor: const Color(0xFF35BF8C),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Voir notifications',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.pushNamed(context, '/employee-notifications');
+          },
+        ),
+      ),
+    );
+
+    // TODO: Implement actual task assignment to backend/Odoo
+    print('Task assigned to ${employee['name']}:');
+    print('Title: $title');
+    print('Description: $description');
+    print('Priority: $priority');
+    print('Due Date: $dueDate');
   }
 
   void _showEmployeeDetails(

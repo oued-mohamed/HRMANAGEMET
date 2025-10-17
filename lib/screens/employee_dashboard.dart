@@ -203,7 +203,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                               title: localizations.translate('requests_status'),
                               subtitle: localizations.translate('in_progress'),
                               value: '3',
-                              color: const Color(0xFFFF6B35),
+                              color: const Color(0xFF8B5CF6),
                               chart: _buildCircularProgress(0.6),
                             ),
                           ),

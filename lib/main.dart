@@ -12,6 +12,7 @@ import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/company_provider.dart';
 import 'presentation/providers/leave_provider.dart';
 import 'presentation/providers/language_provider.dart';
+import 'presentation/providers/dashboard_provider.dart';
 import 'utils/app_localizations.dart';
 import 'screens/leave_calendar_screen.dart';
 import 'screens/leave_request_screen.dart';
@@ -21,6 +22,8 @@ import 'screens/personal_documents_screen.dart';
 import 'screens/profile_settings_screen.dart';
 import 'screens/hr_employee_management_screen.dart';
 import 'screens/leave_management_screen.dart';
+import 'screens/employee_notifications_screen.dart';
+import 'screens/model_explorer_screen.dart';
 import 'services/user_service.dart';
 
 void main() async {
@@ -41,6 +44,7 @@ class HRManagementApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CompanyProvider()),
         ChangeNotifierProvider(create: (_) => LeaveProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, child) {
@@ -83,6 +87,9 @@ class HRManagementApp extends StatelessWidget {
               '/profile-settings': (context) => const ProfileSettingsScreen(),
               '/hr-employees': (context) => const HREmployeeManagementScreen(),
               '/leave-management': (context) => const LeaveManagementScreen(),
+              '/employee-notifications': (context) =>
+                  const EmployeeNotificationsScreen(),
+              '/model-explorer': (context) => const ModelExplorerScreen(),
             },
           );
         },
