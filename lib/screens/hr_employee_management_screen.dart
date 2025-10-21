@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
-import '../widgets/hr_drawer.dart';
 import '../services/notification_service.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
 
 class HREmployeeManagementScreen extends StatefulWidget {
   const HREmployeeManagementScreen({super.key});
@@ -81,7 +83,6 @@ class _HREmployeeManagementScreenState
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: const HRDrawer(),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -116,9 +117,8 @@ class _HREmployeeManagementScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openDrawer(),
-                        icon: const Icon(Icons.menu_rounded,
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded,
                             color: Colors.white, size: 26),
                       ),
                     ),
@@ -145,10 +145,33 @@ class _HREmployeeManagementScreenState
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pushNamed(context, '/profile'),
-                      icon:
-                          const Icon(Icons.person_rounded, color: Colors.white),
+                    StreamBuilder<UserModel?>(
+                      stream: UserService.instance.userStream,
+                      initialData: UserService.instance.currentUser,
+                      builder: (context, snapshot) {
+                        return InkWell(
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/personal-info'),
+                          borderRadius: BorderRadius.circular(25),
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: _buildHeaderProfileAvatar(snapshot.data),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -214,22 +237,30 @@ class _HREmployeeManagementScreenState
                                   ],
                                 ),
                               )
-                            : GridView.builder(
-                                padding:
-                                    const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: isTablet ? 3 : 2,
-                                  mainAxisSpacing: 16,
-                                  crossAxisSpacing: 16,
-                                  childAspectRatio: 0.65,
+                            : SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20,
+                                    100), // Extra bottom padding for FAB
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final availableWidth = constraints.maxWidth;
+                                    final cardWidth = (availableWidth - 16) /
+                                        (isTablet ? 3 : 2);
+
+                                    return Wrap(
+                                      spacing: 16,
+                                      runSpacing: 16,
+                                      children:
+                                          _filteredEmployees.map((employee) {
+                                        return SizedBox(
+                                          width: cardWidth,
+                                          child: _buildEmployeeCard(
+                                              employee, localizations),
+                                        );
+                                      }).toList(),
+                                    );
+                                  },
                                 ),
-                                itemCount: _filteredEmployees.length,
-                                itemBuilder: (context, index) {
-                                  final employee = _filteredEmployees[index];
-                                  return _buildEmployeeCard(
-                                      employee, localizations);
-                                },
                               ),
                       ),
               ),
@@ -284,87 +315,91 @@ class _HREmployeeManagementScreenState
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF000B58), Color(0xFF000B58)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF000B58).withOpacity(0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+                // Top section with avatar and text
+                Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF000B58).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child:
-                      const Icon(Icons.person, color: Colors.white, size: 35),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2d3436),
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  jobTitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF000B58).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    department,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF000B58),
-                      fontWeight: FontWeight.w600,
+                      child: ClipOval(
+                        child: _buildProfileImage(employee),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2d3436),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      jobTitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF000B58).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        department,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF000B58),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                // Assign Task Button
+                const SizedBox(height: 16),
+                // Bottom section with button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () =>
                         _showAssignTaskDialog(employee, localizations),
-                    icon: const Icon(Icons.assignment, size: 16),
+                    icon: const Icon(Icons.assignment, size: 14),
                     label: Text(
                       localizations.translate('assign_task'),
-                      style: const TextStyle(fontSize: 12),
+                      style: const TextStyle(fontSize: 11),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF35BF8C),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
@@ -374,6 +409,96 @@ class _HREmployeeManagementScreenState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileImage(Map<String, dynamic> employee) {
+    final imageData = employee['image_1920'];
+
+    if (imageData != null && imageData.toString().isNotEmpty) {
+      try {
+        // If imageData is a base64 string, decode it
+        if (imageData.toString().startsWith('/9j/') ||
+            imageData.toString().startsWith('iVBORw0KGgo') ||
+            imageData.toString().startsWith('data:image')) {
+          return Image.memory(
+            base64Decode(imageData
+                .toString()
+                .replaceFirst(RegExp(r'^data:image/[^;]+;base64,'), '')),
+            width: 60,
+            height: 60,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildDefaultAvatar();
+            },
+          );
+        }
+        // If it's a URL or path, use Image.network
+        else if (imageData.toString().startsWith('http')) {
+          return Image.network(
+            imageData.toString(),
+            width: 60,
+            height: 60,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildDefaultAvatar();
+            },
+          );
+        }
+      } catch (e) {
+        print('Error loading profile image: $e');
+      }
+    }
+
+    return _buildDefaultAvatar();
+  }
+
+  Widget _buildDefaultAvatar() {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF000B58), Color(0xFF000B58)],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 30),
+    );
+  }
+
+  Widget _buildHeaderProfileAvatar(UserModel? user) {
+    if (user?.profileImage != null && user!.profileImage!.isNotEmpty) {
+      try {
+        final imageBytes = base64Decode(user.profileImage!);
+        return Image.memory(
+          imageBytes,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildHeaderDefaultAvatar();
+          },
+        );
+      } catch (e) {
+        print('Header Avatar - Error decoding image: $e');
+      }
+    }
+
+    return _buildHeaderDefaultAvatar();
+  }
+
+  Widget _buildHeaderDefaultAvatar() {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF000B58), Color(0xFF35BF8C)],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 28),
     );
   }
 
@@ -511,7 +636,7 @@ class _HREmployeeManagementScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: selectedPriority,
+                      initialValue: selectedPriority,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -672,41 +797,104 @@ class _HREmployeeManagementScreenState
     String priority,
     DateTime dueDate,
     AppLocalizations localizations,
-  ) {
-    // Add notification using NotificationService
-    NotificationService().addNotification(
-      title: title,
-      description: description,
-      priority: priority,
-      dueDate: dueDate,
-      assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
-      assignedToName: employee['name']?.toString() ?? 'Unknown',
-    );
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${localizations.translate('task_assigned_successfully')} - ${employee['name']}',
+  ) async {
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Assignation de la tâche...'),
+            ],
+          ),
+          backgroundColor: Color(0xFF000B58),
         ),
-        backgroundColor: const Color(0xFF35BF8C),
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: 'Voir notifications',
-          textColor: Colors.white,
-          onPressed: () {
-            Navigator.pushNamed(context, '/employee-notifications');
-          },
-        ),
-      ),
-    );
+      );
 
-    // TODO: Implement actual task assignment to backend/Odoo
-    print('Task assigned to ${employee['name']}:');
-    print('Title: $title');
-    print('Description: $description');
-    print('Priority: $priority');
-    print('Due Date: $dueDate');
+      // Send push notification to employee
+      final pushSuccess = await OdooService().sendTaskAssignmentNotification(
+        employeeId: employee['id'],
+        taskTitle: title,
+        taskDescription: description,
+        assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
+      );
+
+      // Add local notification as well
+      NotificationService().addNotification(
+        title: title,
+        description: description,
+        priority: priority,
+        dueDate: dueDate,
+        assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
+        assignedToName: employee['name']?.toString() ?? 'Unknown',
+        type: 'task',
+      );
+
+      ScaffoldMessenger.of(context).clearSnackBars();
+
+      if (pushSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                    '${localizations.translate('task_assigned_successfully')} - ${employee['name']}'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF35BF8C),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Voir notifications',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pushNamed(context, '/employee-notifications');
+              },
+            ),
+          ),
+        );
+      } else {
+        // Show warning if push notification failed but local notification succeeded
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Tâche assignée localement - Notification push échouée'),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // TODO: Implement actual task assignment to backend/Odoo
+      print('Task assigned to ${employee['name']}:');
+      print('Title: $title');
+      print('Description: $description');
+      print('Priority: $priority');
+      print('Due Date: $dueDate');
+    } catch (e) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l\'assignation: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showEmployeeDetails(

@@ -75,6 +75,25 @@ class UserService {
     }
   }
 
+  void updateUserName(String newName) {
+    print('UserService - Updating user name to: $newName');
+    if (_currentUser != null) {
+      _currentUser = UserModel(
+        id: _currentUser!.id,
+        name: newName,
+        username: _currentUser!.username,
+        email: _currentUser!.email,
+        isActive: _currentUser!.isActive,
+        companyIds: _currentUser!.companyIds,
+        profileImage: _currentUser!.profileImage,
+      );
+      print('UserService - User name updated');
+      _userController.add(_currentUser);
+    } else {
+      print('UserService - Cannot update name: no current user');
+    }
+  }
+
   Uint8List? getProfileImageBytes() {
     if (_currentUser?.profileImage != null) {
       try {

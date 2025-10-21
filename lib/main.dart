@@ -23,13 +23,19 @@ import 'screens/profile_settings_screen.dart';
 import 'screens/hr_employee_management_screen.dart';
 import 'screens/leave_management_screen.dart';
 import 'screens/employee_notifications_screen.dart';
-import 'screens/model_explorer_screen.dart';
+import 'screens/hr_notifications_screen.dart';
 import 'services/user_service.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   // Initialiser le service utilisateur au démarrage
   await UserService.instance.initialize();
+
+  // Initialize Odoo Notification Service
+  await OdooNotificationService().initialize();
+
   runApp(const HRManagementApp());
 }
 
@@ -89,7 +95,7 @@ class HRManagementApp extends StatelessWidget {
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),
-              '/model-explorer': (context) => const ModelExplorerScreen(),
+              '/hr-notifications': (context) => const HRNotificationsScreen(),
             },
           );
         },

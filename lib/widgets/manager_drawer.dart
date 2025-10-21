@@ -4,14 +4,14 @@ import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 
-class HRDrawer extends StatefulWidget {
-  const HRDrawer({super.key});
+class ManagerDrawer extends StatefulWidget {
+  const ManagerDrawer({super.key});
 
   @override
-  State<HRDrawer> createState() => _HRDrawerState();
+  State<ManagerDrawer> createState() => _ManagerDrawerState();
 }
 
-class _HRDrawerState extends State<HRDrawer> {
+class _ManagerDrawerState extends State<ManagerDrawer> {
   @override
   void initState() {
     super.initState();
@@ -57,7 +57,7 @@ class _HRDrawerState extends State<HRDrawer> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Espace RH',
+                          'Espace Manager',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -92,7 +92,7 @@ class _HRDrawerState extends State<HRDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.pushReplacementNamed(
-                                context, '/hr-dashboard');
+                                context, '/manager-dashboard');
                           },
                         ),
 
@@ -100,8 +100,10 @@ class _HRDrawerState extends State<HRDrawer> {
 
                         // Gestion des employés
                         ListTile(
-                          leading:
-                              const Icon(Icons.people, color: Colors.white),
+                          leading: const Icon(
+                            Icons.people_outline,
+                            color: Colors.white,
+                          ),
                           title: Text(
                             localizations.translate('employee_management'),
                             style: const TextStyle(
@@ -116,28 +118,12 @@ class _HRDrawerState extends State<HRDrawer> {
                           },
                         ),
 
-                        // Demander un congé
-                        ListTile(
-                          leading: const Icon(Icons.add_circle_outline,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('request_leave'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/leave-request');
-                          },
-                        ),
-
                         // Gestion des congés
                         ListTile(
-                          leading: const Icon(Icons.event_available,
-                              color: Colors.white),
+                          leading: const Icon(
+                            Icons.event_available_outlined,
+                            color: Colors.white,
+                          ),
                           title: Text(
                             localizations.translate('leave_management'),
                             style: const TextStyle(
@@ -152,52 +138,16 @@ class _HRDrawerState extends State<HRDrawer> {
                           },
                         ),
 
-                        // Présence & temps
-                        ListTile(
-                          leading: const Icon(Icons.access_time,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('attendance_time'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showSnackBar(context,
-                                localizations.translate('attendance_time'));
-                          },
-                        ),
+                        const Divider(color: Colors.white30, thickness: 1),
 
-                        // Paie
-                        ListTile(
-                          leading: const Icon(Icons.account_balance_wallet,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('payroll'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showSnackBar(
-                                context, localizations.translate('payroll'));
-                          },
-                        ),
-
-                        // Notifications
+                        // Mon profil
                         ListTile(
                           leading: const Icon(
-                            Icons.notifications_outlined,
+                            Icons.person_outline,
                             color: Colors.white,
                           ),
                           title: Text(
-                            localizations.translate('notifications'),
+                            localizations.translate('my_profile'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -206,32 +156,49 @@ class _HRDrawerState extends State<HRDrawer> {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.pushNamed(context, '/hr-notifications');
+                            Navigator.pushNamed(context, '/personal-info');
                           },
                         ),
-                      ],
-                    ),
-                  ),
 
-                  // Footer - Logout
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Divider(color: Colors.white30),
+                        // Paramètres
                         ListTile(
-                          leading:
-                              const Icon(Icons.logout, color: Colors.white70),
+                          leading: const Icon(
+                            Icons.settings_outlined,
+                            color: Colors.white,
+                          ),
                           title: Text(
-                            localizations.translate('logout'),
-                            style: const TextStyle(color: Colors.white70),
+                            localizations.translate('settings'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           onTap: () {
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              '/login',
-                              (route) => false,
-                            );
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, '/profile-settings');
+                          },
+                        ),
+
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // Déconnexion
+                        ListTile(
+                          leading: const Icon(
+                            Icons.logout,
+                            color: Colors.red,
+                          ),
+                          title: Text(
+                            localizations.translate('logout'),
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.pushReplacementNamed(context, '/login');
                           },
                         ),
                       ],
@@ -247,37 +214,60 @@ class _HRDrawerState extends State<HRDrawer> {
   }
 
   Widget _buildManagerAvatar(UserModel? user) {
-    if (user?.profileImage != null) {
+    if (user?.profileImage != null && user!.profileImage!.isNotEmpty) {
       try {
-        final imageBytes = base64Decode(user!.profileImage!);
-        return CircleAvatar(
-          radius: 40,
-          backgroundColor: Colors.white,
-          backgroundImage: MemoryImage(imageBytes),
+        final imageBytes = base64Decode(user.profileImage!);
+        return Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.white.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.memory(
+              imageBytes,
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildDefaultAvatar();
+              },
+            ),
+          ),
         );
       } catch (e) {
-        // Erreur de décodage, utiliser l'icône par défaut
+        print('Manager Avatar - Error decoding image: $e');
       }
     }
 
-    return const CircleAvatar(
-      radius: 40,
-      backgroundColor: Colors.white,
-      child: Icon(
-        Icons.business_center,
-        size: 40,
-        color: Color(0xFF000B58),
-      ),
-    );
+    return _buildDefaultAvatar();
   }
 
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF35BF8C),
-        duration: const Duration(seconds: 2),
+  Widget _buildDefaultAvatar() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF000B58), Color(0xFF35BF8C)],
+        ),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
+      child: const Icon(Icons.person, color: Colors.white, size: 40),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/company_model.dart';
 import '../../services/odoo_service.dart';
+import '../../services/user_service.dart';
 import '../../core/enums/user_role.dart';
 import '../../core/models/auth_result.dart';
 
@@ -72,9 +73,31 @@ class AuthProvider extends ChangeNotifier {
 
         _user = user;
 
+        // Refresh UserService to get complete user data including profile image
+        await UserService.instance.refreshUser();
+
         // Create company entry based on Odoo data
         final userRole =
             await _determineUserRole(asIntList(userInfo['groups_id']));
+
+        // Debug: Log user details for troubleshooting
+        print('=== USER ROLE DETERMINATION DEBUG ===');
+        print('User: ${user.name}');
+        print('Username: ${user.username}');
+        print('Group IDs: ${asIntList(userInfo['groups_id'])}');
+        print('Determined Role: $userRole');
+        print('=====================================');
+
+        // Additional debug for specific users
+        if (user.username.toLowerCase().contains('othman') ||
+            user.name.toLowerCase().contains('othman')) {
+          print('*** OTHMAN USER DEBUG ***');
+          print('Username: ${user.username}');
+          print('Name: ${user.name}');
+          print('Groups: ${asIntList(userInfo['groups_id'])}');
+          print('Role: $userRole');
+          print('*************************');
+        }
 
         final companies = <CompanyModel>[
           CompanyModel(
@@ -153,7 +176,7 @@ class AuthProvider extends ChangeNotifier {
       print('Determining user role...');
       print('User group IDs: $groupIds');
 
-      // Check if user has subordinates (is a manager)
+      // First check if user has subordinates (is a manager)
       final hasSubordinates = await _odooService.isManager();
 
       if (hasSubordinates) {
@@ -161,25 +184,88 @@ class AuthProvider extends ChangeNotifier {
         return UserRole.manager;
       }
 
-      // Check for HR role based on Odoo groups
-      // HR Officer/Manager group IDs in Odoo
-      // Base HR groups: base.group_hr_manager, base.group_hr_user
-      // These typically have high IDs, not 13-14
-      // Let's check for specific HR groups - adjust these based on your Odoo setup
+      // Check for HR role based on job title (more specific criteria)
+      try {
+        final employeeDetails = await _odooService.getEmployeeDetails();
+        final jobTitle = employeeDetails['job_id'];
+
+        print('Raw job title data: $jobTitle');
+        print('Job title type: ${jobTitle.runtimeType}');
+
+        if (jobTitle != null) {
+          String jobTitleStr = '';
+          if (jobTitle is List && jobTitle.isNotEmpty) {
+            jobTitleStr = jobTitle[1].toString().toLowerCase().trim();
+          } else {
+            jobTitleStr = jobTitle.toString().toLowerCase().trim();
+          }
+
+          print('Processed job title: "$jobTitleStr"');
+          print('Job title length: ${jobTitleStr.length}');
+
+          // Specific HR-related job titles (avoiding false positives)
+          final hrKeywords = [
+            'hr manager',
+            'hr director',
+            'human resources manager',
+            'human resources director',
+            'ressources humaines manager',
+            'ressources humaines directeur',
+            'responsable rh',
+            'responsable ressources humaines',
+            'gestionnaire rh',
+            'gestionnaire ressources humaines',
+            'chef rh',
+            'directeur rh',
+            'rh manager',
+            'rh director',
+            'rh responsable',
+            'rh gestionnaire',
+            'rh chef',
+            'rh directeur',
+            // More specific combinations to avoid false positives
+            'human resources',
+            'ressources humaines',
+            'hr specialist',
+            'hr coordinator',
+            'hr assistant',
+            'hr analyst'
+          ];
+
+          bool isHR = false;
+          for (String keyword in hrKeywords) {
+            if (jobTitleStr.contains(keyword)) {
+              print('HR keyword match: "$keyword" in "$jobTitleStr"');
+              isHR = true;
+              break;
+            }
+          }
+
+          if (isHR) {
+            print('User has HR role (job title match): $jobTitleStr');
+            return UserRole.hr;
+          }
+        }
+      } catch (e) {
+        print('Error checking job title: $e');
+      }
+
+      // Check for HR role based on Odoo groups (only specific HR groups)
+      // Only use known specific HR group IDs to avoid false positives
       final hrGroupIds = [
-        // 13, 14 are too common - might be basic user groups
-        // Uncomment if you want to check specific HR groups:
+        // Add only specific HR group IDs here if you know them
         // 50, // Example: hr.group_hr_manager
         // 51, // Example: hr.group_hr_user
+        // Remove 13, 14 as they include too many regular employees
       ];
 
       if (hrGroupIds.isNotEmpty &&
           groupIds.any((id) => hrGroupIds.contains(id))) {
-        print('User has HR role (group match)');
+        print('User has HR role (specific group match)');
         return UserRole.hr;
       }
 
-      print('User is a regular employee');
+      print('User is a regular employee (no HR indicators found)');
       return UserRole.employee;
     } catch (e) {
       print('Error determining user role: $e');

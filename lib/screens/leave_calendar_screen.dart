@@ -424,14 +424,14 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Sélectionner le mois et l\'année'),
-          content: Container(
+          title: const Text('Sélectionner le mois et l\'année'),
+          content: SizedBox(
             width: 300,
             height: 400,
             child: Column(
               children: [
                 // Year Selection
-                Text(
+                const Text(
                   'Année',
                   style: TextStyle(
                     fontSize: 16,
@@ -439,11 +439,11 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                     color: Colors.black87,
                   ),
                 ),
-                SizedBox(height: 8),
-                Container(
+                const SizedBox(height: 8),
+                SizedBox(
                   height: 120,
                   child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 5,
                       childAspectRatio: 2,
                       crossAxisSpacing: 4,
@@ -462,12 +462,12 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Color(0xFF000B58)
+                                ? const Color(0xFF000B58)
                                 : Colors.grey[100],
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isSelected
-                                  ? Color(0xFF000B58)
+                                  ? const Color(0xFF000B58)
                                   : Colors.grey[300]!,
                             ),
                           ),
@@ -489,9 +489,9 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                     },
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 // Month Selection
-                Text(
+                const Text(
                   'Mois',
                   style: TextStyle(
                     fontSize: 16,
@@ -499,10 +499,10 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                     color: Colors.black87,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Expanded(
                   child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       childAspectRatio: 2.5,
                       crossAxisSpacing: 8,
@@ -521,12 +521,12 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Color(0xFF000B58)
+                                ? const Color(0xFF000B58)
                                 : Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSelected
-                                  ? Color(0xFF000B58)
+                                  ? const Color(0xFF000B58)
                                   : Colors.grey[300]!,
                             ),
                           ),
@@ -554,7 +554,7 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Fermer'),
+              child: const Text('Fermer'),
             ),
           ],
         );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/odoo_service.dart';
 import '../services/user_service.dart';
+import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -547,7 +548,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     _buildInfoCard(
                       icon: Icons.person_outline,
                       label: 'Nom complet',
-                      value: employeeData['name']?.toString() ?? 'N/A',
+                      value: employeeData['user_name']?.toString() ??
+                          employeeData['name']?.toString() ??
+                          'N/A',
+                      fieldKey: 'name',
+                      fieldType: 'text',
                     ),
 
                     _buildInfoCard(
@@ -556,6 +561,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                       value: employeeData['work_email']?.toString() ??
                           employeeData['user_email']?.toString() ??
                           'N/A',
+                      fieldKey: 'work_email',
+                      fieldType: 'email',
                     ),
 
                     if (employeeData['work_phone'] != null &&
@@ -564,6 +571,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         icon: Icons.phone_outlined,
                         label: 'Téléphone professionnel',
                         value: employeeData['work_phone'].toString(),
+                        fieldKey: 'work_phone',
+                        fieldType: 'phone',
                       ),
 
                     if (employeeData['mobile_phone'] != null &&
@@ -572,6 +581,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         icon: Icons.phone_android_outlined,
                         label: 'Mobile',
                         value: employeeData['mobile_phone'].toString(),
+                        fieldKey: 'mobile_phone',
+                        fieldType: 'phone',
                       ),
 
                     if (employeeData['birthday'] != null &&
@@ -580,6 +591,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         icon: Icons.cake_outlined,
                         label: 'Date de naissance',
                         value: _formatDate(employeeData['birthday'].toString()),
+                        fieldKey: 'birthday',
+                        fieldType: 'date',
                       ),
 
                     const SizedBox(height: 20),
@@ -629,34 +642,6 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                       ),
 
                     const SizedBox(height: 20),
-
-                    // Edit Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Fonctionnalité de modification à venir'),
-                              backgroundColor: Color(0xFF35BF8C),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: Text(localizations.translate('edit_my_info')),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF000B58),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -682,10 +667,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     required IconData icon,
     required String label,
     required String value,
+    String? fieldKey,
+    String? fieldType,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(12),
@@ -725,6 +712,24 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               ],
             ),
           ),
+          // Edit icon for editable fields
+          if (fieldKey != null && _isEditableField(fieldKey))
+            InkWell(
+              onTap: () => _showEditDialog(fieldKey, label, value, fieldType),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.edit_outlined,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -747,5 +752,192 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     } catch (e) {
       return date;
     }
+  }
+
+  bool _isEditableField(String fieldKey) {
+    // Define which fields are editable
+    const editableFields = [
+      'name',
+      'work_email',
+      'work_phone',
+      'mobile_phone',
+      'birthday',
+    ];
+    return editableFields.contains(fieldKey);
+  }
+
+  void _showEditDialog(
+      String fieldKey, String label, String currentValue, String? fieldType) {
+    final controller = TextEditingController(text: currentValue);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text('Modifier $label'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (fieldType == 'email')
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: label,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              )
+            else if (fieldType == 'phone')
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: label,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              )
+            else if (fieldType == 'date')
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) {
+                    controller.text = DateFormat('yyyy-MM-dd').format(date);
+                  }
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: label,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(controller.text),
+                ),
+              )
+            else
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: label,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await _updateField(fieldKey, controller.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Sauvegarder'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateField(String fieldKey, String newValue) async {
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Mise à jour en cours...'),
+            ],
+          ),
+          backgroundColor: Color(0xFF000B58),
+        ),
+      );
+
+      // Update in Odoo
+      final success =
+          await OdooService().updateEmployeeField(fieldKey, newValue);
+
+      if (success) {
+        // Update UserService if name was changed
+        if (fieldKey == 'name') {
+          UserService.instance.updateUserName(newValue);
+        }
+
+        // Send notification to HR
+        await _sendHRNotification(fieldKey, newValue);
+
+        // Show success message
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Information mise à jour avec succès'),
+              ],
+            ),
+            backgroundColor: Color(0xFF35BF8C),
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Refresh the page and UserService
+        setState(() {});
+
+        // Force refresh UserService to update cached data
+        await UserService.instance.refreshUser();
+      } else {
+        throw Exception('Erreur lors de la mise à jour');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendHRNotification(String fieldKey, String newValue) async {
+    // Import NotificationService
+    final notificationService = NotificationService();
+
+    // Create notification for HR
+    notificationService.addNotification(
+      title: 'Modification d\'information personnelle',
+      description: 'Un employé a modifié son $fieldKey vers: $newValue',
+      priority: 'medium_priority',
+      dueDate: DateTime.now().add(const Duration(days: 1)),
+      assignedByName: 'Système',
+      assignedToName: 'RH',
+      type: 'info_change',
+    );
   }
 }

@@ -275,25 +275,6 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
 
                         // 5. Notifications
                         _buildNotificationTile(localizations),
-
-                        // Debug: Model Explorer (temporary)
-                        ListTile(
-                          leading: const Icon(
-                            Icons.bug_report,
-                            color: Colors.white,
-                          ),
-                          title: const Text(
-                            'Model Explorer',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/model-explorer');
-                          },
-                        ),
                       ],
                     ),
                   ),

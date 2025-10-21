@@ -195,6 +195,232 @@ class OdooService {
     }
   }
 
+  // Update individual employee field
+  Future<bool> updateEmployeeField(String fieldKey, String newValue) async {
+    print('Updating employee field: $fieldKey to $newValue');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Employee ID: $employeeId');
+
+      // Special handling for 'name' field - update in res.users instead of hr.employee
+      if (fieldKey == 'name') {
+        print('Updating name in res.users table');
+
+        final result = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'res.users',
+          'write',
+          [
+            [_userId!], // Update current user
+            {'name': newValue}
+          ],
+          {
+            'context': {'lang': 'fr_FR'}
+          }
+        ]);
+
+        print('Name update result: $result');
+        return result == true;
+      }
+
+      // For other fields, update in hr.employee
+      Map<String, dynamic> fieldData = {fieldKey: newValue};
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'write',
+        [
+          [employeeId],
+          fieldData
+        ],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Field update result: $result');
+      return result == true;
+    } catch (e) {
+      print('Error updating employee field: $e');
+      rethrow;
+    }
+  }
+
+  // Get unread notifications for current user
+  Future<List<Map<String, dynamic>>> getUnreadNotifications() async {
+    print('Fetching unread notifications...');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Employee ID: $employeeId');
+
+      final notifications = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.notification',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+            ['is_read', '=', false]
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'title',
+            'message',
+            'type',
+            'data',
+            'create_date',
+            'employee_id'
+          ],
+          'order': 'create_date desc',
+          'limit': 10,
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print(
+          'Found ${notifications is List ? notifications.length : 0} unread notifications');
+
+      if (notifications is List) {
+        final List<Map<String, dynamic>> validNotifications = [];
+        for (var item in notifications) {
+          if (item is Map<String, dynamic>) {
+            validNotifications.add(item);
+          }
+        }
+        return validNotifications;
+      }
+
+      return [];
+    } catch (e) {
+      print('Error fetching unread notifications: $e');
+      return [];
+    }
+  }
+
+  // Mark notification as read
+  Future<bool> markNotificationAsRead(int notificationId) async {
+    print('Marking notification $notificationId as read...');
+
+    try {
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.notification',
+        'write',
+        [
+          [notificationId],
+          {
+            'is_read': true,
+            'read_date': DateTime.now().toIso8601String(),
+          }
+        ],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Notification read status update result: $result');
+      return result == true;
+    } catch (e) {
+      print('Error marking notification as read: $e');
+      return false;
+    }
+  }
+
+  // Send notification to specific employee
+  Future<bool> sendNotificationToEmployee({
+    required int employeeId,
+    required String title,
+    required String message,
+    String type = 'general',
+    Map<String, dynamic>? data,
+  }) async {
+    print('Sending notification to employee $employeeId');
+
+    try {
+      // Create notification record in Odoo
+      final notificationData = {
+        'title': title,
+        'message': message,
+        'type': type,
+        'employee_id': employeeId,
+        'data': data?.toString() ?? '{}',
+        'is_read': false,
+        'create_date': DateTime.now().toIso8601String(),
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.notification', // Custom model in Odoo
+        'create',
+        [notificationData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Notification sent result: $result');
+      return result != null;
+    } catch (e) {
+      print('Error sending notification: $e');
+      rethrow;
+    }
+  }
+
+  // Send task assignment notification
+  Future<bool> sendTaskAssignmentNotification({
+    required int employeeId,
+    required String taskTitle,
+    required String taskDescription,
+    required String assignedByName,
+  }) async {
+    return await sendNotificationToEmployee(
+      employeeId: employeeId,
+      title: 'Nouvelle tâche assignée',
+      message: '$assignedByName vous a assigné une nouvelle tâche: $taskTitle',
+      type: 'task_assignment',
+      data: {
+        'task_title': taskTitle,
+        'task_description': taskDescription,
+        'assigned_by': assignedByName,
+      },
+    );
+  }
+
+  // Send leave approval notification
+  Future<bool> sendLeaveApprovalNotification({
+    required int employeeId,
+    required String leaveType,
+    required String status,
+    required String managerName,
+  }) async {
+    return await sendNotificationToEmployee(
+      employeeId: employeeId,
+      title: 'Statut de congé mis à jour',
+      message: 'Votre demande de $leaveType a été $status par $managerName',
+      type: 'leave_approval',
+      data: {
+        'leave_type': leaveType,
+        'status': status,
+        'manager_name': managerName,
+      },
+    );
+  }
+
   // Check if current user is a manager (has subordinates)
   Future<bool> isManager() async {
     try {
@@ -2057,6 +2283,164 @@ class OdooService {
 
   // Check if user is authenticated
   bool get isAuthenticated => _userId != null && _password != null;
+
+  // Request salary certificate
+  Future<bool> requestSalaryCertificate({
+    required String type, // 'monthly' or 'annual'
+    int? fiscalYear,
+    bool withDetail = false,
+  }) async {
+    print('Requesting salary certificate: $type');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final requestData = {
+        'employee_id': employeeId,
+        'document_type': 'salary_certificate',
+        'certificate_type': type,
+        'fiscal_year': fiscalYear,
+        'with_detail': withDetail,
+        'request_date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.document.request', // Custom model in Odoo
+        'create',
+        [requestData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Salary certificate request result: $result');
+      return result != null;
+    } catch (e) {
+      print('Error requesting salary certificate: $e');
+      return false;
+    }
+  }
+
+  // Request work certificate
+  Future<bool> requestWorkCertificate() async {
+    print('Requesting work certificate');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final requestData = {
+        'employee_id': employeeId,
+        'document_type': 'work_certificate',
+        'request_date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.document.request',
+        'create',
+        [requestData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Work certificate request result: $result');
+      return result != null;
+    } catch (e) {
+      print('Error requesting work certificate: $e');
+      return false;
+    }
+  }
+
+  // Request payslip
+  Future<bool> requestPayslip({
+    int? month,
+    int? year,
+  }) async {
+    print(
+        'Requesting payslip for ${month ?? 'current'}/${year ?? DateTime.now().year}');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final requestData = {
+        'employee_id': employeeId,
+        'document_type': 'payslip',
+        'month': month ?? DateTime.now().month,
+        'year': year ?? DateTime.now().year,
+        'request_date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.document.request',
+        'create',
+        [requestData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Payslip request result: $result');
+      return result != null;
+    } catch (e) {
+      print('Error requesting payslip: $e');
+      return false;
+    }
+  }
+
+  // Request mission order
+  Future<bool> requestMissionOrder({
+    required String type, // 'trip' or 'expense'
+    String? description,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    print('Requesting mission order: $type');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final requestData = {
+        'employee_id': employeeId,
+        'document_type': 'mission_order',
+        'mission_type': type,
+        'description': description ?? 'Demande d\'ordre de mission',
+        'start_date': startDate?.toIso8601String(),
+        'end_date': endDate?.toIso8601String(),
+        'request_date': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.document.request',
+        'create',
+        [requestData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Mission order request result: $result');
+      return result != null;
+    } catch (e) {
+      print('Error requesting mission order: $e');
+      return false;
+    }
+  }
 
   // Helper method to make XML-RPC calls
   Future<dynamic> _callRPC(String service, String method, List params) async {

@@ -20,9 +20,13 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      name: json['user_name'] ??
+          json['name'] ??
+          '', // Use user_name first, fallback to name
       username: json['login'] ?? '',
-      email: json['email'] ?? '',
+      email: json['user_email'] ??
+          json['email'] ??
+          '', // Use user_email first, fallback to email
       isActive: json['active'] ?? true,
       companyIds: List<int>.from(json['company_ids'] ?? []),
       profileImage: json['image_1920'],

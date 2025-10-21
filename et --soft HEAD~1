@@ -1,0 +1,33 @@
+[33mcommit 70d8060eb2467598c6839e63b6380081fed23302[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: medud <simooued1@gmail.com>
+Date:   Mon Oct 20 23:01:12 2025 +0100
+
+    solve authentification problem
+
+DOCUMENT_REQUESTS_GUIDE.md
+PUSH_NOTIFICATIONS_GUIDE.md
+android/app/build.gradle.kts
+android/build/reports/problems/problems-report.html
+android/gradle.properties
+jdk17.msi
+lib/data/models/notification_model.dart
+lib/data/models/user_model.dart
+lib/main.dart
+lib/presentation/providers/auth_provider.dart
+lib/screens/hr_dashboard.dart
+lib/screens/hr_employee_management_screen.dart
+lib/screens/hr_notifications_screen.dart
+lib/screens/leave_calendar_screen.dart
+lib/screens/manager_dashboard.dart
+lib/screens/model_explorer_screen.dart
+lib/screens/personal_documents_screen.dart
+lib/screens/personal_info_screen.dart
+lib/services/odoo_service.dart
+lib/services/push_notification_service.dart
+lib/services/user_service.dart
+lib/widgets/employee_drawer.dart
+lib/widgets/hr_drawer.dart
+lib/widgets/manager_drawer.dart
+macos/Flutter/GeneratedPluginRegistrant.swift
+pubspec.lock
+pubspec.yaml

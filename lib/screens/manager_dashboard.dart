@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/hr_drawer.dart';
+import '../widgets/manager_drawer.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../presentation/providers/dashboard_provider.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 
 class ManagerDashboard extends StatefulWidget {
@@ -33,7 +36,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: const HRDrawer(),
+      drawer: const ManagerDrawer(),
       body: Consumer<DashboardProvider>(
         builder: (context, dashboardProvider, child) {
           return Container(
@@ -81,7 +84,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                             onPressed: () =>
                                 _scaffoldKey.currentState?.openDrawer(),
                             icon: const Icon(
-                              Icons.menu_rounded,
+                              Icons.menu,
                               color: Colors.white,
                               size: 26,
                             ),
@@ -114,32 +117,41 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                           ),
                         ),
                         // Profile Picture with glow effect
-                        InkWell(
-                          onTap: () => Navigator.pushNamed(context, '/profile'),
-                          borderRadius: BorderRadius.circular(25),
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      const Color(0xFFf5576c).withOpacity(0.4),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
+                        StreamBuilder<UserModel?>(
+                          stream: UserService.instance.userStream,
+                          initialData: UserService.instance.currentUser,
+                          builder: (context, snapshot) {
+                            return InkWell(
+                              onTap: () => Navigator.pushNamed(
+                                  context, '/personal-info'),
+                              borderRadius: BorderRadius.circular(25),
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFf093fb),
+                                      Color(0xFFf5576c)
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFf5576c)
+                                          .withOpacity(0.4),
+                                      blurRadius: 15,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.person_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
+                                child: ClipOval(
+                                  child:
+                                      _buildManagerProfileAvatar(snapshot.data),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -219,7 +231,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                       _buildModernStatCard(
                                         localizations.translate('team_size'),
                                         '${dashboardProvider.teamStats?['team_size'] ?? 0}',
-                                        Icons.people_rounded,
+                                        Icons.people,
                                         const Color(0xFF000B58),
                                         const Color(0xFF000B58),
                                         localizations,
@@ -228,7 +240,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         localizations
                                             .translate('pending_approvals'),
                                         '${dashboardProvider.teamStats?['pending_approvals'] ?? 0}',
-                                        Icons.pending_actions_rounded,
+                                        Icons.pending_actions,
                                         const Color(0xFFF59E0B),
                                         const Color(0xFFD97706),
                                         localizations,
@@ -237,7 +249,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         localizations
                                             .translate('approved_this_week'),
                                         '${dashboardProvider.teamStats?['approved_this_week'] ?? 0}',
-                                        Icons.check_circle_rounded,
+                                        Icons.check_circle,
                                         const Color(0xFF35BF8C),
                                         const Color(0xFF059669),
                                         localizations,
@@ -246,7 +258,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         localizations
                                             .translate('team_productivity'),
                                         '${dashboardProvider.teamStats?['team_productivity'] ?? 0}%',
-                                        Icons.trending_up_rounded,
+                                        Icons.trending_up,
                                         const Color(0xFF8B5CF6),
                                         const Color(0xFF7C3AED),
                                         localizations,
@@ -412,7 +424,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.notifications_active_rounded,
+                  Icons.notifications_active,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -457,7 +469,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.check_circle_outline_rounded,
+                      Icons.check_circle_outline,
                       size: 64,
                       color: Colors.grey[300],
                     ),
@@ -660,7 +672,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.groups_rounded,
+                  Icons.groups,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -704,7 +716,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.people_outline_rounded,
+                      Icons.people_outline,
                       size: 64,
                       color: Colors.grey[300],
                     ),
@@ -912,5 +924,40 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
         );
       }
     }
+  }
+
+  Widget _buildManagerProfileAvatar(UserModel? user) {
+    if (user?.profileImage != null && user!.profileImage!.isNotEmpty) {
+      try {
+        final imageBytes = base64Decode(user.profileImage!);
+        return Image.memory(
+          imageBytes,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildManagerDefaultAvatar();
+          },
+        );
+      } catch (e) {
+        print('Manager Avatar - Error decoding image: $e');
+      }
+    }
+
+    return _buildManagerDefaultAvatar();
+  }
+
+  Widget _buildManagerDefaultAvatar() {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 28),
+    );
   }
 }
