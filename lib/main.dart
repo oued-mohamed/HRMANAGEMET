@@ -24,6 +24,8 @@ import 'screens/hr_employee_management_screen.dart';
 import 'screens/leave_management_screen.dart';
 import 'screens/employee_notifications_screen.dart';
 import 'screens/hr_notifications_screen.dart';
+import 'screens/employee_tasks_screen.dart';
+import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
 
@@ -95,6 +97,14 @@ class HRManagementApp extends StatelessWidget {
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),
+              '/employee-tasks': (context) => EmployeeTasksScreen(
+                    employee: Employee(
+                      id: 1, // This should be the current employee ID
+                      name: 'Employee Name',
+                      email: 'employee@example.com',
+                      isActive: true,
+                    ),
+                  ),
               '/hr-notifications': (context) => const HRNotificationsScreen(),
             },
           );

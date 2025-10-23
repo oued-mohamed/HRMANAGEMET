@@ -273,7 +273,29 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                           ],
                         ),
 
-                        // 5. Notifications
+                        // 6. Mes Tâches
+                        ListTile(
+                          leading: const Icon(
+                            Icons.task_alt,
+                            color: Colors.white,
+                          ),
+                          title: Text(
+                            'Mes Tâches',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, '/employee-tasks');
+                          },
+                        ),
+
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 7. Notifications
                         _buildNotificationTile(localizations),
                       ],
                     ),

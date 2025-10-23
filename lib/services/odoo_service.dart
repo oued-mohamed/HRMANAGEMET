@@ -789,6 +789,238 @@ class OdooService {
     }
   }
 
+  // Fetch tasks assigned to a specific employee by ID
+  Future<List<Map<String, dynamic>>> getTasksForEmployee({
+    required int employeeId,
+  }) async {
+    try {
+      print('Fetching tasks for employee $employeeId');
+
+      // First get the user ID associated with the employee
+      final employeeUser = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        },
+      ]);
+
+      print('Employee user data: $employeeUser');
+
+      if (employeeUser.isEmpty || employeeUser[0]['user_id'] == false) {
+        print('Employee $employeeId has no associated user account');
+        return [];
+      }
+
+      final userId = employeeUser[0]['user_id'][0];
+      print('Found user ID: $userId for employee $employeeId');
+
+      // Search and read tasks assigned to this user
+      final tasks = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task',
+        'search_read',
+        [
+          [
+            [
+              'user_ids',
+              'in',
+              [userId]
+            ]
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'name',
+            'description',
+            'priority',
+            'date_deadline',
+            'create_date',
+            'write_date',
+            'stage_id',
+            'user_ids',
+            'project_id',
+            'partner_id',
+            'personal_stage_id',
+            'personal_stage_type_id',
+            'activity_user_id'
+          ],
+          'order': 'create_date desc',
+          'limit': 50,
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print(
+          'Found ${tasks is List ? tasks.length : 0} tasks for employee $employeeId');
+
+      if (tasks is List) {
+        final List<Map<String, dynamic>> validTasks = [];
+        for (var item in tasks) {
+          if (item is Map<String, dynamic>) {
+            // Transform project.task data to match our expected format
+            validTasks.add({
+              'id': item['id'],
+              'name': item['name'],
+              'description': item['description'] ?? '',
+              'priority': item['priority'],
+              'date_deadline': item['date_deadline'],
+              'create_date': item['create_date'],
+              'write_date': item['write_date'],
+              'stage_id': item['stage_id'],
+              'user_ids': item['user_ids'],
+              'project_id': item['project_id'],
+              'partner_id': item['partner_id'],
+              'personal_stage_id': item['personal_stage_id'],
+              'personal_stage_type_id': item['personal_stage_type_id'],
+              'activity_user_id': item['activity_user_id'],
+            });
+          }
+        }
+        print(
+            'Processed ${validTasks.length} valid tasks for employee $employeeId');
+        return validTasks;
+      } else {
+        print('Unexpected response format: $tasks');
+        return [];
+      }
+    } catch (e) {
+      print('❌ ERROR fetching tasks for employee $employeeId: $e');
+      return [];
+    }
+  }
+
+  // Update task stage/status
+  Future<bool> updateTaskStage({
+    required int taskId,
+    required String newStage,
+  }) async {
+    try {
+      print('Updating task $taskId status to $newStage');
+
+      // First, get available stages
+      final stages = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task.type',
+        'search_read',
+        [[]],
+        {
+          'fields': ['name', 'id']
+        }
+      ]);
+
+      print('Available stages in Odoo: $stages');
+
+      // Process the raw Odoo stages data
+      final List<Map<String, dynamic>> validStages = [];
+      if (stages is List) {
+        for (var item in stages) {
+          if (item is Map<String, dynamic>) {
+            validStages.add({
+              'id': item['id'],
+              'name': item['name'],
+            });
+          }
+        }
+      }
+
+      print('Processed ${validStages.length} valid stages for update');
+
+      // Find the stage ID by name
+      int? stageId;
+      for (var stage in validStages) {
+        print('Checking stage: ${stage['name']} (ID: ${stage['id']})');
+        if (stage['name']
+            .toString()
+            .toLowerCase()
+            .contains(newStage.toLowerCase())) {
+          stageId = stage['id'];
+          print('Found matching stage: ${stage['name']} with ID: $stageId');
+          break;
+        }
+      }
+
+      if (stageId == null) {
+        print('Stage "$newStage" not found');
+        return false;
+      }
+
+      print('Mapping "$newStage" to personal stage ID: $stageId');
+
+      // Step 4: Update the task with the correct field name
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task',
+        'write',
+        [
+          [taskId], // Task ID must be in a list
+          {
+            'personal_stage_type_id': stageId, // ✅ Use this field
+          }
+        ],
+      ]);
+
+      print('✅ Task $taskId status updated successfully: $result');
+      return result == true;
+    } catch (e) {
+      print('❌ ERROR updating task $taskId status: $e');
+      return false;
+    }
+  }
+
+  // Get available task stages
+  Future<List<Map<String, dynamic>>> getAvailableTaskStages() async {
+    try {
+      print('Fetching available task stages...');
+
+      final stages = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task.type',
+        'search_read',
+        [[]],
+        {
+          'fields': ['name', 'id']
+        }
+      ]);
+
+      print('Found ${stages.length} available stages: $stages');
+
+      if (stages is List) {
+        final List<Map<String, dynamic>> validStages = [];
+        for (var item in stages) {
+          if (item is Map<String, dynamic>) {
+            // Transform stage data to match our expected format
+            validStages.add({
+              'id': item['id'],
+              'name': item['name'],
+            });
+          }
+        }
+        print('Processed ${validStages.length} valid stages');
+        return validStages;
+      } else {
+        print('Unexpected response format: $stages');
+        return [];
+      }
+    } catch (e) {
+      print('❌ ERROR fetching task stages: $e');
+      return [];
+    }
+  }
+
   // Send task assignment notification
   Future<bool> sendTaskAssignmentNotification({
     required int employeeId,
