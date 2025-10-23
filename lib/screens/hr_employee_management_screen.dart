@@ -820,15 +820,17 @@ class _HREmployeeManagementScreenState
         ),
       );
 
-      // Send push notification to employee
-      final pushSuccess = await OdooService().sendTaskAssignmentNotification(
+      // Create task in Odoo and send notification
+      final success = await OdooService().createTaskAndNotify(
         employeeId: employee['id'],
-        taskTitle: title,
-        taskDescription: description,
+        title: title,
+        description: description,
+        priority: priority,
+        dueDate: dueDate,
         assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
       );
 
-      // Add local notification as well
+      // Add local notification as well for immediate feedback
       NotificationService().addNotification(
         title: title,
         description: description,
@@ -841,7 +843,7 @@ class _HREmployeeManagementScreenState
 
       ScaffoldMessenger.of(context).clearSnackBars();
 
-      if (pushSuccess) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -864,14 +866,14 @@ class _HREmployeeManagementScreenState
           ),
         );
       } else {
-        // Show warning if push notification failed but local notification succeeded
+        // Show warning if task creation failed
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
               children: [
                 Icon(Icons.warning, color: Colors.white),
                 SizedBox(width: 8),
-                Text('Tâche assignée localement - Notification push échouée'),
+                Text('Erreur lors de la création de la tâche dans Odoo'),
               ],
             ),
             backgroundColor: Colors.orange,
@@ -880,12 +882,12 @@ class _HREmployeeManagementScreenState
         );
       }
 
-      // TODO: Implement actual task assignment to backend/Odoo
       print('Task assigned to ${employee['name']}:');
       print('Title: $title');
       print('Description: $description');
       print('Priority: $priority');
       print('Due Date: $dueDate');
+      print('Success: $success');
     } catch (e) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(

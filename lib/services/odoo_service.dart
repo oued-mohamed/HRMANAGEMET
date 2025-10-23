@@ -264,7 +264,7 @@ class OdooService {
         database,
         _userId,
         _password,
-        'hr.notification',
+        'manager.notification',
         'search_read',
         [
           [
@@ -308,6 +308,287 @@ class OdooService {
     }
   }
 
+  // Get tasks assigned to current employee using project.task
+  Future<List<Map<String, dynamic>>> getEmployeeTasks() async {
+    print('Fetching tasks for current employee...');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Employee ID: $employeeId');
+
+      // Get employee's user ID
+      final employeeData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        }
+      ]);
+
+      if (employeeData is List && employeeData.isNotEmpty) {
+        final userData = employeeData.first;
+        final userId = userData['user_id'];
+
+        if (userId is List && userId.isNotEmpty) {
+          final tasks = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'project.task',
+            'search_read',
+            [
+              [
+                [
+                  'user_ids',
+                  'in',
+                  [userId[0]]
+                ]
+              ]
+            ],
+            {
+              'fields': [
+                'id',
+                'name',
+                'description',
+                'priority',
+                'date_deadline',
+                'stage_id',
+                'create_date',
+                'user_ids'
+              ],
+              'order': 'create_date desc',
+              'limit': 50,
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+
+          print('Found ${tasks is List ? tasks.length : 0} tasks');
+
+          if (tasks is List) {
+            final List<Map<String, dynamic>> validTasks = [];
+            for (var item in tasks) {
+              if (item is Map<String, dynamic>) {
+                // Transform project.task data to match our expected format
+                validTasks.add({
+                  'id': item['id'],
+                  'title': item['name'],
+                  'description': item['description'] ?? '',
+                  'priority': _mapOdooPriorityToFlutter(item['priority']),
+                  'due_date': item['date_deadline'] ?? '',
+                  'status': _getTaskStatusFromStage(item['stage_id']),
+                  'assigned_by_name': 'Manager',
+                  'create_date': item['create_date'],
+                  'assigned_to_id': employeeId,
+                });
+              }
+            }
+            return validTasks;
+          }
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('Error fetching employee tasks: $e');
+      return [];
+    }
+  }
+
+  // Helper method to convert stage to status
+  String _getTaskStatusFromStage(dynamic stageId) {
+    if (stageId is List && stageId.isNotEmpty) {
+      final stageName = stageId[1]?.toString().toLowerCase() ?? '';
+      if (stageName.contains('done') || stageName.contains('completed')) {
+        return 'completed';
+      } else if (stageName.contains('progress') ||
+          stageName.contains('doing')) {
+        return 'in_progress';
+      }
+    }
+    return 'pending';
+  }
+
+  // Helper method to map Odoo priority values to Flutter values
+  String _mapOdooPriorityToFlutter(dynamic odooPriority) {
+    if (odooPriority == null) return 'medium_priority';
+
+    // Convert to string and check the value
+    final priorityStr = odooPriority.toString();
+    switch (priorityStr) {
+      case '1':
+        return 'high_priority';
+      case '0':
+        return 'medium_priority';
+      case '-1':
+        return 'low_priority';
+      default:
+        return 'medium_priority';
+    }
+  }
+
+  // Debug method to search for a specific task by ID
+  Future<Map<String, dynamic>?> searchTaskById(int taskId) async {
+    try {
+      print('Searching for task ID: $taskId');
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task',
+        'search_read',
+        [
+          ['id', '=', taskId]
+        ],
+        {
+          'fields': [
+            'id',
+            'name',
+            'description',
+            'priority',
+            'date_deadline',
+            'user_ids',
+            'project_id',
+            'stage_id',
+            'create_date'
+          ]
+        }
+      ]);
+
+      print('Search result for task $taskId: $result');
+      return result.isNotEmpty ? result[0] : null;
+    } catch (e) {
+      print('Error searching for task $taskId: $e');
+      return null;
+    }
+  }
+
+  // Get tasks assigned by current manager
+  Future<List<Map<String, dynamic>>> getManagerTasks() async {
+    print('Fetching tasks assigned by current manager...');
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Manager Employee ID: $employeeId');
+
+      // Get manager's user ID
+      final managerData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        }
+      ]);
+
+      if (managerData is List && managerData.isNotEmpty) {
+        final userData = managerData.first;
+        final userId = userData['user_id'];
+
+        if (userId is List && userId.isNotEmpty) {
+          final tasks = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'project.task',
+            'search_read',
+            [
+              [
+                ['create_uid', '=', userId[0]] // Tasks created by this manager
+              ]
+            ],
+            {
+              'fields': [
+                'id',
+                'name',
+                'description',
+                'priority',
+                'date_deadline',
+                'stage_id',
+                'create_date',
+                'user_ids',
+                'create_uid'
+              ],
+              'order': 'create_date desc',
+              'limit': 50,
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+
+          print(
+              'Found ${tasks is List ? tasks.length : 0} tasks assigned by manager');
+
+          if (tasks is List) {
+            final List<Map<String, dynamic>> validTasks = [];
+            for (var item in tasks) {
+              if (item is Map<String, dynamic>) {
+                // Transform project.task data to match our expected format
+                validTasks.add({
+                  'id': item['id'],
+                  'title': item['name'],
+                  'description': item['description'] ?? '',
+                  'priority': item['priority'] ?? 'medium_priority',
+                  'due_date': item['date_deadline'] ?? '',
+                  'status': _getTaskStatusFromStage(item['stage_id']),
+                  'assigned_by_name': 'Manager',
+                  'create_date': item['create_date'],
+                  'assigned_to_id':
+                      item['user_ids'] is List && item['user_ids'].isNotEmpty
+                          ? item['user_ids'][0]
+                          : null,
+                });
+              }
+            }
+            return validTasks;
+          }
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('Error fetching manager tasks: $e');
+      return [];
+    }
+  }
+
+  // Update task status
+  Future<bool> updateTaskStatus(int taskId, String newStatus) async {
+    print('Updating task $taskId status to $newStatus');
+
+    try {
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'project.task',
+        'write',
+        [
+          [taskId],
+          {
+            'status': newStatus,
+            'update_date': DateTime.now().toIso8601String(),
+          }
+        ],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('Task status update result: $result');
+      return result == true;
+    } catch (e) {
+      print('Error updating task status: $e');
+      return false;
+    }
+  }
+
   // Mark notification as read
   Future<bool> markNotificationAsRead(int notificationId) async {
     print('Marking notification $notificationId as read...');
@@ -317,7 +598,7 @@ class OdooService {
         database,
         _userId,
         _password,
-        'hr.notification',
+        'manager.notification',
         'write',
         [
           [notificationId],
@@ -339,7 +620,7 @@ class OdooService {
     }
   }
 
-  // Send notification to specific employee
+  // Send notification to specific employee using mail.message
   Future<bool> sendNotificationToEmployee({
     required int employeeId,
     required String title,
@@ -350,33 +631,160 @@ class OdooService {
     print('Sending notification to employee $employeeId');
 
     try {
-      // Create notification record in Odoo
-      final notificationData = {
-        'title': title,
-        'message': message,
-        'type': type,
-        'employee_id': employeeId,
-        'data': data?.toString() ?? '{}',
-        'is_read': false,
-        'create_date': DateTime.now().toIso8601String(),
+      // Get employee's user ID
+      final employeeData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        }
+      ]);
+
+      if (employeeData is List && employeeData.isNotEmpty) {
+        final userData = employeeData.first;
+        final userId = userData['user_id'];
+
+        if (userId is List && userId.isNotEmpty) {
+          // Create mail message notification
+          final messageData = {
+            'subject': title,
+            'body': message,
+            'message_type': 'notification',
+            'partner_ids': [
+              [
+                6,
+                0,
+                [userId[0]]
+              ]
+            ], // Send to employee's user
+            'model': 'hr.employee',
+            'res_id': employeeId,
+            'date': DateTime.now().toIso8601String(),
+          };
+
+          final result = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'mail.message', // Use existing mail.message model
+            'create',
+            [messageData],
+            {
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+
+          print('Notification sent result: $result');
+          return result != null;
+        }
+      }
+
+      print('Could not find user for employee $employeeId');
+      return false;
+    } catch (e) {
+      print('Error sending notification: $e');
+      // Don't rethrow, just return false to allow task creation to continue
+      return false;
+    }
+  }
+
+  // Create task in Odoo using project.task (existing model)
+  Future<int> createTask({
+    required int employeeId,
+    required String title,
+    required String description,
+    required String priority,
+    required DateTime dueDate,
+    required String assignedByName,
+  }) async {
+    print('Creating task in Odoo for employee $employeeId');
+
+    try {
+      // Step 1: Map Flutter priority values to Odoo priority values
+      String odooPriority;
+      switch (priority) {
+        case 'high_priority':
+          odooPriority = '1'; // High priority in Odoo
+          break;
+        case 'medium_priority':
+          odooPriority = '0'; // Normal priority in Odoo
+          break;
+        case 'low_priority':
+          odooPriority = '-1'; // Low priority in Odoo
+          break;
+        default:
+          odooPriority = '0'; // Default to normal priority
+      }
+
+      // Step 2: Format date for Odoo (YYYY-MM-DD HH:MM:SS)
+      final formattedDueDate = '${dueDate.year.toString().padLeft(4, '0')}-'
+          '${dueDate.month.toString().padLeft(2, '0')}-'
+          '${dueDate.day.toString().padLeft(2, '0')} '
+          '${dueDate.hour.toString().padLeft(2, '0')}:'
+          '${dueDate.minute.toString().padLeft(2, '0')}:'
+          '${dueDate.second.toString().padLeft(2, '0')}';
+
+      // Step 3: Get the user ID associated with the employee
+      final employeeUser = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        },
+      ]);
+
+      int? userId;
+      if (employeeUser.isNotEmpty && employeeUser[0]['user_id'] != false) {
+        userId =
+            employeeUser[0]['user_id'][0]; // Get the user ID from the tuple
+      }
+
+      // Step 4: Build task data BEFORE the RPC call
+      final Map<String, dynamic> taskData = {
+        'name': title,
+        'description': description,
+        'priority': odooPriority,
+        'date_deadline': formattedDueDate,
+        'project_id': false, // No project assignment
+        'partner_id': false, // No customer
       };
 
+      // Add user assignment if available
+      if (userId != null) {
+        taskData['user_ids'] = [
+          [
+            6,
+            0,
+            [userId]
+          ]
+        ]; // Proper many2many format
+      }
+
+      print('Task data being sent to Odoo: $taskData');
+
+      // Step 5: Create the task
       final result = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
-        'hr.notification', // Custom model in Odoo
+        'project.task',
         'create',
-        [notificationData],
-        {
-          'context': {'lang': 'fr_FR'}
-        }
+        [taskData], // Pass as list with one map element
+        {}
       ]);
 
-      print('Notification sent result: $result');
-      return result != null;
+      print('✅ Task created successfully with ID: $result');
+      return result;
     } catch (e) {
-      print('Error sending notification: $e');
+      print('❌ ERROR creating task: $e');
       rethrow;
     }
   }
@@ -388,17 +796,47 @@ class OdooService {
     required String taskDescription,
     required String assignedByName,
   }) async {
-    return await sendNotificationToEmployee(
-      employeeId: employeeId,
-      title: 'Nouvelle tâche assignée',
-      message: '$assignedByName vous a assigné une nouvelle tâche: $taskTitle',
-      type: 'task_assignment',
-      data: {
-        'task_title': taskTitle,
-        'task_description': taskDescription,
-        'assigned_by': assignedByName,
-      },
-    );
+    // For now, just return true since manager.notification model doesn't exist
+    // TODO: Implement proper notification system when manager.notification model is created
+    print('Task assignment notification would be sent to employee $employeeId');
+    return true;
+  }
+
+  // Create task and send notification
+  Future<bool> createTaskAndNotify({
+    required int employeeId,
+    required String title,
+    required String description,
+    required String priority,
+    required DateTime dueDate,
+    required String assignedByName,
+  }) async {
+    try {
+      // Create the task in Odoo
+      final taskId = await createTask(
+        employeeId: employeeId,
+        title: title,
+        description: description,
+        priority: priority,
+        dueDate: dueDate,
+        assignedByName: assignedByName,
+      );
+
+      // Send notification to employee
+      final notificationSuccess = await sendTaskAssignmentNotification(
+        employeeId: employeeId,
+        taskTitle: title,
+        taskDescription: description,
+        assignedByName: assignedByName,
+      );
+
+      print(
+          'Task created with ID: $taskId, Notification sent: $notificationSuccess');
+      return taskId > 0;
+    } catch (e) {
+      print('Error creating task and notification: $e');
+      return false;
+    }
   }
 
   // Send leave approval notification

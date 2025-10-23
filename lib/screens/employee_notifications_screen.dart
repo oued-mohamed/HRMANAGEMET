@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
+import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/employee_drawer.dart';
 
@@ -15,11 +16,18 @@ class _EmployeeNotificationsScreenState
     extends State<EmployeeNotificationsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final NotificationService _notificationService = NotificationService();
+  final OdooService _odooService = OdooService();
+
+  List<Map<String, dynamic>> _odooTasks = [];
+  List<Map<String, dynamic>> _odooNotifications = [];
+  bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
     _notificationService.addListener(_onNotificationChanged);
+    _loadOdooData();
     // Add sample notifications for testing if none exist
     if (_notificationService.notifications.isEmpty) {
       _notificationService.addSampleNotifications();
@@ -34,6 +42,85 @@ class _EmployeeNotificationsScreenState
 
   void _onNotificationChanged() {
     setState(() {});
+  }
+
+  Future<void> _loadOdooData() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      // Load tasks from Odoo (skip notifications for now)
+      final tasks = await _odooService.getEmployeeTasks();
+
+      setState(() {
+        _odooTasks = tasks;
+        _odooNotifications = []; // Skip notifications for now
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading Odoo data: $e');
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _getAllItems() {
+    List<Map<String, dynamic>> allItems = [];
+
+    // Add Odoo tasks
+    for (var task in _odooTasks) {
+      allItems.add({
+        ...task,
+        'isOdooTask': true,
+        'type': 'task',
+        'title': task['title'] ?? 'Tâche sans titre',
+        'description': task['description'] ?? '',
+        'priority': task['priority'] ?? 'medium_priority',
+        'dueDate': task['due_date'] ?? DateTime.now().toIso8601String(),
+        'assignedByName': task['assigned_by_name'] ?? 'Manager',
+        'createdAt': task['create_date'] ?? DateTime.now().toIso8601String(),
+        'isRead': false,
+      });
+    }
+
+    // Add Odoo notifications
+    for (var notification in _odooNotifications) {
+      allItems.add({
+        ...notification,
+        'isOdooNotification': true,
+        'type': notification['type'] ?? 'general',
+        'title': notification['title'] ?? 'Notification',
+        'description': notification['message'] ?? '',
+        'priority': 'medium_priority',
+        'dueDate':
+            notification['create_date'] ?? DateTime.now().toIso8601String(),
+        'assignedByName': 'Système',
+        'createdAt':
+            notification['create_date'] ?? DateTime.now().toIso8601String(),
+        'isRead': notification['is_read'] ?? false,
+      });
+    }
+
+    // Add local notifications
+    for (var notification in _notificationService.notifications) {
+      allItems.add({
+        ...notification,
+        'isLocalNotification': true,
+      });
+    }
+
+    // Sort by creation date (newest first)
+    allItems.sort((a, b) {
+      final dateA = DateTime.tryParse(a['createdAt'] ?? '') ?? DateTime.now();
+      final dateB = DateTime.tryParse(b['createdAt'] ?? '') ?? DateTime.now();
+      return dateB.compareTo(dateA);
+    });
+
+    return allItems;
   }
 
   @override
@@ -97,7 +184,7 @@ class _EmployeeNotificationsScreenState
                             ),
                           ),
                           Text(
-                            '${_notificationService.unreadCount} nouvelles tâches',
+                            '${_getAllItems().length} notifications',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white.withOpacity(0.9),
@@ -130,47 +217,95 @@ class _EmployeeNotificationsScreenState
 
               // Notifications List
               Expanded(
-                child: _notificationService.notifications.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.notifications_none,
-                              size: 80,
-                              color: Colors.white.withOpacity(0.5),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Aucune notification',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Vous recevrez des notifications\nquand des tâches vous seront assignées',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _notificationService.notifications.length,
-                        itemBuilder: (context, index) {
-                          final notification =
-                              _notificationService.notifications[index];
-                          return _buildNotificationCard(
-                              notification, localizations);
-                        },
-                      ),
+                    : _hasError
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Erreur de connexion',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Impossible de charger les tâches depuis Odoo',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _loadOdooData,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        Colors.white.withOpacity(0.2),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Réessayer'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _getAllItems().isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_none,
+                                      size: 80,
+                                      color: Colors.white.withOpacity(0.5),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Aucune notification',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Vous recevrez des notifications\nquand des tâches vous seront assignées',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                itemCount: _getAllItems().length,
+                                itemBuilder: (context, index) {
+                                  final item = _getAllItems()[index];
+                                  return _buildNotificationCard(
+                                      item, localizations);
+                                },
+                              ),
               ),
             ],
           ),
