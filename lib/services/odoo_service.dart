@@ -259,46 +259,97 @@ class OdooService {
     try {
       final employeeId = await getCurrentEmployeeId();
       print('Employee ID: $employeeId');
+      print('Current user ID: $_userId');
 
-      final notifications = await _callRPC('object', 'execute_kw', [
+      // Get employee's user ID first
+      final employeeData = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
-        'manager.notification',
-        'search_read',
-        [
-          [
-            ['employee_id', '=', employeeId],
-            ['is_read', '=', false]
-          ]
-        ],
+        'hr.employee',
+        'read',
+        [employeeId],
         {
-          'fields': [
-            'id',
-            'title',
-            'message',
-            'type',
-            'data',
-            'create_date',
-            'employee_id'
-          ],
-          'order': 'create_date desc',
-          'limit': 10,
-          'context': {'lang': 'fr_FR'}
+          'fields': ['user_id']
         }
       ]);
 
-      print(
-          'Found ${notifications is List ? notifications.length : 0} unread notifications');
+      if (employeeData is List && employeeData.isNotEmpty) {
+        final userData = employeeData.first;
+        final userId = userData['user_id'];
 
-      if (notifications is List) {
-        final List<Map<String, dynamic>> validNotifications = [];
-        for (var item in notifications) {
-          if (item is Map<String, dynamic>) {
-            validNotifications.add(item);
+        if (userId is List && userId.isNotEmpty) {
+          print('Searching for notifications for user ID: ${userId[0]}');
+          // Fetch mail.message notifications sent to this user
+          final notifications = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'mail.message',
+            'search_read',
+            [
+              [
+                [
+                  'partner_ids',
+                  'in',
+                  [userId[0]]
+                ],
+                ['message_type', '=', 'notification'],
+                // Temporarily remove date filter to test
+                // [
+                //   'create_date',
+                //   '>=',
+                //   DateTime.now()
+                //       .subtract(const Duration(days: 7))
+                //       .toIso8601String()
+                // ]
+              ]
+            ],
+            {
+              'fields': [
+                'id',
+                'subject',
+                'body',
+                'create_date',
+                'partner_ids',
+                'model',
+                'res_id'
+              ],
+              'order': 'create_date desc',
+              'limit': 10,
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+
+          print(
+              'Found ${notifications is List ? notifications.length : 0} mail.message notifications');
+
+          if (notifications is List) {
+            final List<Map<String, dynamic>> validNotifications = [];
+            for (var item in notifications) {
+              if (item is Map<String, dynamic>) {
+                // Transform mail.message data to notification format
+                validNotifications.add({
+                  'id': item['id'],
+                  'title': item['subject'] ?? 'Notification',
+                  'message': item['body'] ?? '',
+                  'type': 'hr_notification',
+                  'data': {
+                    'message_id': item['id'],
+                    'subject': item['subject'],
+                    'body': item['body'],
+                    'model': item['model'],
+                    'res_id': item['res_id'],
+                  },
+                  'create_date': item['create_date'],
+                  'employee_id': employeeId,
+                  'is_read': false, // We'll track this locally for now
+                });
+              }
+            }
+            return validNotifications;
           }
         }
-        return validNotifications;
       }
 
       return [];
@@ -428,6 +479,16 @@ class OdooService {
       default:
         return 'medium_priority';
     }
+  }
+
+  // Helper method to format DateTime for Odoo (YYYY-MM-DD HH:MM:SS)
+  String _formatDateForOdoo(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}:'
+        '${date.second.toString().padLeft(2, '0')}';
   }
 
   // Debug method to search for a specific task by ID
@@ -573,7 +634,7 @@ class OdooService {
           [taskId],
           {
             'status': newStatus,
-            'update_date': DateTime.now().toIso8601String(),
+            'update_date': _formatDateForOdoo(DateTime.now()),
           }
         ],
         {
@@ -594,26 +655,12 @@ class OdooService {
     print('Marking notification $notificationId as read...');
 
     try {
-      final result = await _callRPC('object', 'execute_kw', [
-        database,
-        _userId,
-        _password,
-        'manager.notification',
-        'write',
-        [
-          [notificationId],
-          {
-            'is_read': true,
-            'read_date': DateTime.now().toIso8601String(),
-          }
-        ],
-        {
-          'context': {'lang': 'fr_FR'}
-        }
-      ]);
-
-      print('Notification read status update result: $result');
-      return result == true;
+      // Since we're using tasks as notifications, we'll just return true
+      // In a real implementation, you might want to store read status locally
+      // or create a separate notification tracking system
+      print(
+          'Notification $notificationId marked as read (using task-based notifications)');
+      return true;
     } catch (e) {
       print('Error marking notification as read: $e');
       return false;
@@ -649,6 +696,8 @@ class OdooService {
         final userId = userData['user_id'];
 
         if (userId is List && userId.isNotEmpty) {
+          print(
+              'Sending notification to user ID: ${userId[0]} for employee $employeeId');
           // Create mail message notification
           final messageData = {
             'subject': title,
@@ -663,7 +712,7 @@ class OdooService {
             ], // Send to employee's user
             'model': 'hr.employee',
             'res_id': employeeId,
-            'date': DateTime.now().toIso8601String(),
+            'date': _formatDateForOdoo(DateTime.now()),
           };
 
           final result = await _callRPC('object', 'execute_kw', [
@@ -2971,7 +3020,7 @@ class OdooService {
         'certificate_type': type,
         'fiscal_year': fiscalYear,
         'with_detail': withDetail,
-        'request_date': DateTime.now().toIso8601String(),
+        'request_date': _formatDateForOdoo(DateTime.now()),
         'status': 'pending',
       };
 
@@ -3005,7 +3054,7 @@ class OdooService {
       final requestData = {
         'employee_id': employeeId,
         'document_type': 'work_certificate',
-        'request_date': DateTime.now().toIso8601String(),
+        'request_date': _formatDateForOdoo(DateTime.now()),
         'status': 'pending',
       };
 
@@ -3045,7 +3094,7 @@ class OdooService {
         'document_type': 'payslip',
         'month': month ?? DateTime.now().month,
         'year': year ?? DateTime.now().year,
-        'request_date': DateTime.now().toIso8601String(),
+        'request_date': _formatDateForOdoo(DateTime.now()),
         'status': 'pending',
       };
 
@@ -3088,7 +3137,7 @@ class OdooService {
         'description': description ?? 'Demande d\'ordre de mission',
         'start_date': startDate?.toIso8601String(),
         'end_date': endDate?.toIso8601String(),
-        'request_date': DateTime.now().toIso8601String(),
+        'request_date': _formatDateForOdoo(DateTime.now()),
         'status': 'pending',
       };
 

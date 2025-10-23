@@ -166,7 +166,6 @@ class AppLocalizations {
       'leave_management': 'Leave Management',
       'attendance_time': 'Attendance & Time',
       'payroll': 'Payroll',
-      'logout': 'Logout',
 
       // Task Management
       'assign_task': 'Assign Task',
@@ -179,12 +178,27 @@ class AppLocalizations {
       'medium_priority': 'Medium',
       'low_priority': 'Low',
       'pending': 'Pending',
-      'in_progress': 'In Progress',
-      'completed': 'Completed',
       'assign': 'Assign',
       'task_assigned_successfully': 'Task assigned successfully',
       'select_employee': 'Select Employee',
       'my_direct_reports': 'My Direct Reports',
+
+      // HR Notifications
+      'send_notifications': 'Send Notifications',
+      'notification_type': 'Notification Type',
+      'all_employees': 'All Employees',
+      'selected_employees': 'Selected Employees',
+      'notification_details': 'Notification Details',
+      'notification_title': 'Notification Title',
+      'enter_title': 'Enter title',
+      'message': 'Message',
+      'enter_message': 'Enter message',
+      'select_employees': 'Select Employees',
+      'selected': 'selected',
+      'sending': 'Sending...',
+      'send_notification': 'Send Notification',
+      'fill_all_fields': 'Please fill all fields',
+      'notification_sent': 'Notification sent to',
     },
     'fr': {
       // Common
@@ -341,7 +355,6 @@ class AppLocalizations {
       'leave_management': 'Gestion des congés',
       'attendance_time': 'Présence & temps',
       'payroll': 'Paie',
-      'logout': 'Déconnexion',
 
       // Task Management
       'assign_task': 'Assigner une tâche',
@@ -354,12 +367,27 @@ class AppLocalizations {
       'medium_priority': 'Moyenne',
       'low_priority': 'Faible',
       'pending': 'En attente',
-      'in_progress': 'En cours',
-      'completed': 'Terminée',
       'assign': 'Assigner',
       'task_assigned_successfully': 'Tâche assignée avec succès',
       'select_employee': 'Sélectionner un employé',
       'my_direct_reports': 'Mes employés directs',
+
+      // HR Notifications
+      'send_notifications': 'Envoyer des Notifications',
+      'notification_type': 'Type de Notification',
+      'all_employees': 'Tous les Employés',
+      'selected_employees': 'Employés Sélectionnés',
+      'notification_details': 'Détails de la Notification',
+      'notification_title': 'Titre de la Notification',
+      'enter_title': 'Entrez le titre',
+      'message': 'Message',
+      'enter_message': 'Entrez le message',
+      'select_employees': 'Sélectionner des Employés',
+      'selected': 'sélectionné',
+      'sending': 'Envoi en cours...',
+      'send_notification': 'Envoyer la Notification',
+      'fill_all_fields': 'Veuillez remplir tous les champs',
+      'notification_sent': 'Notification envoyée à',
     },
     'ar': {
       // Common
@@ -514,7 +542,6 @@ class AppLocalizations {
       'leave_management': 'إدارة الإجازات',
       'attendance_time': 'الحضور والوقت',
       'payroll': 'كشوف المرتبات',
-      'logout': 'تسجيل الخروج',
 
       // Task Management
       'assign_task': 'تعيين مهمة',
@@ -527,12 +554,27 @@ class AppLocalizations {
       'medium_priority': 'متوسطة',
       'low_priority': 'منخفضة',
       'pending': 'في الانتظار',
-      'in_progress': 'قيد التنفيذ',
-      'completed': 'مكتملة',
       'assign': 'تعيين',
       'task_assigned_successfully': 'تم تعيين المهمة بنجاح',
       'select_employee': 'اختر الموظف',
       'my_direct_reports': 'مرؤوسي المباشرون',
+
+      // HR Notifications
+      'send_notifications': 'إرسال الإشعارات',
+      'notification_type': 'نوع الإشعار',
+      'all_employees': 'جميع الموظفين',
+      'selected_employees': 'الموظفون المحددون',
+      'notification_details': 'تفاصيل الإشعار',
+      'notification_title': 'عنوان الإشعار',
+      'enter_title': 'أدخل العنوان',
+      'message': 'الرسالة',
+      'enter_message': 'أدخل الرسالة',
+      'select_employees': 'اختر الموظفين',
+      'selected': 'محدد',
+      'sending': 'جاري الإرسال...',
+      'send_notification': 'إرسال الإشعار',
+      'fill_all_fields': 'يرجى ملء جميع الحقول',
+      'notification_sent': 'تم إرسال الإشعار إلى',
     },
   };
 

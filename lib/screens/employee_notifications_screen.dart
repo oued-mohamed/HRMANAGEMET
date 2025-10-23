@@ -18,7 +18,6 @@ class _EmployeeNotificationsScreenState
   final NotificationService _notificationService = NotificationService();
   final OdooService _odooService = OdooService();
 
-  List<Map<String, dynamic>> _odooTasks = [];
   List<Map<String, dynamic>> _odooNotifications = [];
   bool _isLoading = true;
   bool _hasError = false;
@@ -27,11 +26,10 @@ class _EmployeeNotificationsScreenState
   void initState() {
     super.initState();
     _notificationService.addListener(_onNotificationChanged);
+    _notificationService
+        .clearAllNotifications(); // Clear any existing mock data
     _loadOdooData();
-    // Add sample notifications for testing if none exist
-    if (_notificationService.notifications.isEmpty) {
-      _notificationService.addSampleNotifications();
-    }
+    // Removed mock data - only show real notifications from HR
   }
 
   @override
@@ -51,16 +49,15 @@ class _EmployeeNotificationsScreenState
     });
 
     try {
-      // Load tasks from Odoo (skip notifications for now)
-      final tasks = await _odooService.getEmployeeTasks();
+      // Load only notifications from Odoo (no tasks)
+      final notifications = await _odooService.getUnreadNotifications();
 
       setState(() {
-        _odooTasks = tasks;
-        _odooNotifications = []; // Skip notifications for now
+        _odooNotifications = notifications;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading Odoo data: $e');
+      print('Error loading Odoo notifications: $e');
       setState(() {
         _hasError = true;
         _isLoading = false;
@@ -71,36 +68,18 @@ class _EmployeeNotificationsScreenState
   List<Map<String, dynamic>> _getAllItems() {
     List<Map<String, dynamic>> allItems = [];
 
-    // Add Odoo tasks
-    for (var task in _odooTasks) {
-      allItems.add({
-        ...task,
-        'isOdooTask': true,
-        'type': 'task',
-        'title': task['title'] ?? 'Tâche sans titre',
-        'description': task['description'] ?? '',
-        'priority': task['priority'] ?? 'medium_priority',
-        'dueDate': task['due_date'] ?? DateTime.now().toIso8601String(),
-        'assignedByName': task['assigned_by_name'] ?? 'Manager',
-        'createdAt': task['create_date'] ?? DateTime.now().toIso8601String(),
-        'isRead': false,
-      });
-    }
-
-    // Add Odoo notifications
+    // Add Odoo notifications only (no tasks)
     for (var notification in _odooNotifications) {
       allItems.add({
         ...notification,
         'isOdooNotification': true,
         'type': notification['type'] ?? 'general',
         'title': notification['title'] ?? 'Notification',
-        'description': notification['message'] ?? '',
+        'description': _stripHtmlTags(notification['message'] ?? ''),
         'priority': 'medium_priority',
-        'dueDate':
-            notification['create_date'] ?? DateTime.now().toIso8601String(),
-        'assignedByName': 'Système',
-        'createdAt':
-            notification['create_date'] ?? DateTime.now().toIso8601String(),
+        'dueDate': _convertToIsoString(notification['create_date']),
+        'assignedByName': 'RH',
+        'createdAt': _convertToIsoString(notification['create_date']),
         'isRead': notification['is_read'] ?? false,
       });
     }
@@ -193,7 +172,10 @@ class _EmployeeNotificationsScreenState
                         ],
                       ),
                     ),
-                    if (_notificationService.unreadCount > 0)
+                    if (_getAllItems()
+                            .where((item) => item['isRead'] == false)
+                            .length >
+                        0)
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -201,7 +183,7 @@ class _EmployeeNotificationsScreenState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${_notificationService.unreadCount}',
+                          '${_getAllItems().where((item) => item['isRead'] == false).length}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -245,7 +227,7 @@ class _EmployeeNotificationsScreenState
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Impossible de charger les tâches depuis Odoo',
+                                  'Impossible de charger les notifications depuis Odoo',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.white.withOpacity(0.7),
@@ -286,7 +268,7 @@ class _EmployeeNotificationsScreenState
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Vous recevrez des notifications\nquand des tâches vous seront assignées',
+                                      'Vous recevrez des notifications\nquand le RH vous enverra des messages',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.7),
@@ -317,8 +299,8 @@ class _EmployeeNotificationsScreenState
   Widget _buildNotificationCard(
       Map<String, dynamic> notification, AppLocalizations localizations) {
     final isUnread = notification['isRead'] == false;
-    final priorityColor =
-        _notificationService.getPriorityColor(notification['priority']);
+    final priorityColor = _notificationService.getPriorityColor(
+        notification['priority']?.toString() ?? 'medium_priority');
     final notificationType = notification['type'] ?? 'general';
     final typeIcon = _getNotificationTypeIcon(notificationType);
 
@@ -511,8 +493,9 @@ class _EmployeeNotificationsScreenState
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: _notificationService
-                              .getPriorityColor(notification['priority']),
+                          color: _notificationService.getPriorityColor(
+                              notification['priority']?.toString() ??
+                                  'medium_priority'),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -556,8 +539,9 @@ class _EmployeeNotificationsScreenState
                   _buildDetailRow(
                     Icons.flag,
                     'Priorité',
-                    _notificationService
-                        .getPriorityDisplayName(notification['priority']),
+                    _notificationService.getPriorityDisplayName(
+                        notification['priority']?.toString() ??
+                            'medium_priority'),
                   ),
                   _buildDetailRow(
                     Icons.calendar_today,
@@ -664,7 +648,35 @@ class _EmployeeNotificationsScreenState
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  String _stripHtmlTags(String htmlString) {
+    // Remove HTML tags using regex
+    return htmlString.replaceAll(RegExp(r'<[^>]*>'), '');
+  }
+
+  String _convertToIsoString(dynamic date) {
+    if (date == null) return DateTime.now().toIso8601String();
+
+    if (date is String) {
+      return date;
+    } else if (date is DateTime) {
+      return date.toIso8601String();
+    } else {
+      return DateTime.now().toIso8601String();
+    }
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'N/A';
+
+    DateTime dateTime;
+    if (date is String) {
+      dateTime = DateTime.tryParse(date) ?? DateTime.now();
+    } else if (date is DateTime) {
+      dateTime = date;
+    } else {
+      return 'N/A';
+    }
+
+    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
   }
 }
