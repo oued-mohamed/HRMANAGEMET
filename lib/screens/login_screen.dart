@@ -20,7 +20,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      body: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(1.0), // Prevent text scaling issues
+        ),
+        child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -77,30 +81,55 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Username Field
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: TextFormField(
-                          controller: _usernameController,
-                          decoration: const InputDecoration(
-                            hintText: 'Username',
-                            hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
-                            prefixIcon: Icon(
-                              Icons.person_outlined,
-                              color: Color(0xFF000B58),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: TextFormField(
+                            controller: _usernameController,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF111827),
+                              letterSpacing: 0.0,
+                              height: 1.25,
+                              fontFamily: 'Roboto',
+                              decoration: TextDecoration.none,
                             ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
+                            decoration: const InputDecoration(
+                              hintText: 'Username',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF6B7280),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.0,
+                              fontFamily: 'Roboto',
                             ),
+                              prefixIcon: Icon(
+                                Icons.person_outlined,
+                                color: Color(0xFF000B58),
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Username is required';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Username is required';
-                            }
-                            return null;
-                          },
                         ),
                       ),
 
@@ -109,45 +138,68 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Password Field
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: TextFormField(
-                          controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
-                          decoration: InputDecoration(
-                            hintText: 'Password',
-                            hintStyle:
-                                const TextStyle(color: Color(0xFF9CA3AF)),
-                            prefixIcon: const Icon(
-                              Icons.lock_outlined,
-                              color: Color(0xFF000B58),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: TextFormField(
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF111827),
+                              letterSpacing: 0.0,
+                              height: 1.25,
+                              fontFamily: 'Roboto',
+                              decoration: TextDecoration.none,
                             ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: const Color(0xFF000B58),
+                            decoration: InputDecoration(
+                              hintText: 'Password',
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF9CA3AF),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 0.0,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
+                              prefixIcon: const Icon(
+                                Icons.lock_outlined,
+                                color: Color(0xFF000B58),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: const Color(0xFF000B58),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
                             ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
-                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password is required';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Password is required';
-                            }
-                            return null;
-                          },
                         ),
                       ),
 
@@ -187,9 +239,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : const Text(
                                       'Sign In',
                                       style: TextStyle(
-                                        color: Color(0xFF000B58),
+                                        color: Color(0xFF111827),
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
+                                        fontFamily: 'Roboto',
+                                        letterSpacing: 0.0,
+                                        height: 1.2,
                                       ),
                                     ),
                             ),
@@ -251,6 +306,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

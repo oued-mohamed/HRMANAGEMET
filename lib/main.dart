@@ -6,7 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/company_selection_screen.dart';
 import 'screens/employee_dashboard.dart';
 import 'screens/profile_screen.dart';
-import 'screens/hr_dashboard.dart';
+import 'screens/hr_dashboard_new.dart';
 import 'screens/manager_dashboard.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/company_provider.dart';
@@ -83,7 +83,7 @@ class HRManagementApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/company-selection': (context) => const CompanySelectionScreen(),
               '/employee-dashboard': (context) => const EmployeeDashboard(),
-              '/hr-dashboard': (context) => const HRDashboard(),
+              '/hr-dashboard': (context) => const HRDashboardNew(),
               '/manager-dashboard': (context) => const ManagerDashboard(),
               '/leave-calendar': (context) => const LeaveCalendarScreen(),
               '/leave-request': (context) => const LeaveRequestScreen(),
@@ -94,6 +94,8 @@ class HRManagementApp extends StatelessWidget {
                   const PersonalDocumentsScreen(),
               '/profile-settings': (context) => const ProfileSettingsScreen(),
               '/hr-employees': (context) => const HREmployeeManagementScreen(),
+              '/manager-employees': (context) =>
+                  const HREmployeeManagementScreen(),
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),

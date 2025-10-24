@@ -19,30 +19,47 @@ class _EmployeeNotificationsScreenState
   final OdooService _odooService = OdooService();
 
   List<Map<String, dynamic>> _odooNotifications = [];
+  List<Map<String, dynamic>> _allItems = []; // Cache the combined items
   bool _isLoading = true;
   bool _hasError = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _notificationService.addListener(_onNotificationChanged);
-    _notificationService
-        .clearAllNotifications(); // Clear any existing mock data
-    _loadOdooData();
+
+    // Initialize after the first frame is built to avoid build-time state changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isInitialized) {
+        _isInitialized = true;
+        _notificationService.addListener(_onNotificationChanged);
+        _notificationService
+            .clearAllNotifications(); // Clear any existing mock data
+        _updateAllItems(); // Initialize the cached items
+        _loadOdooData();
+      }
+    });
     // Removed mock data - only show real notifications from HR
   }
 
   @override
   void dispose() {
     _notificationService.removeListener(_onNotificationChanged);
+    _isInitialized = false;
     super.dispose();
   }
 
   void _onNotificationChanged() {
-    setState(() {});
+    if (mounted) {
+      setState(() {
+        _updateAllItems();
+      });
+    }
   }
 
   Future<void> _loadOdooData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _hasError = false;
@@ -52,20 +69,26 @@ class _EmployeeNotificationsScreenState
       // Load only notifications from Odoo (no tasks)
       final notifications = await _odooService.getUnreadNotifications();
 
-      setState(() {
-        _odooNotifications = notifications;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _odooNotifications = notifications;
+          _isLoading = false;
+          _updateAllItems();
+        });
+      }
     } catch (e) {
       print('Error loading Odoo notifications: $e');
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+          _updateAllItems();
+        });
+      }
     }
   }
 
-  List<Map<String, dynamic>> _getAllItems() {
+  void _updateAllItems() {
     List<Map<String, dynamic>> allItems = [];
 
     // Add Odoo notifications only (no tasks)
@@ -99,7 +122,7 @@ class _EmployeeNotificationsScreenState
       return dateB.compareTo(dateA);
     });
 
-    return allItems;
+    _allItems = allItems;
   }
 
   @override
@@ -163,7 +186,7 @@ class _EmployeeNotificationsScreenState
                             ),
                           ),
                           Text(
-                            '${_getAllItems().length} notifications',
+                            '${_allItems.length} notifications',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white.withOpacity(0.9),
@@ -172,7 +195,7 @@ class _EmployeeNotificationsScreenState
                         ],
                       ),
                     ),
-                    if (_getAllItems()
+                    if (_allItems
                             .where((item) => item['isRead'] == false)
                             .length >
                         0)
@@ -183,7 +206,7 @@ class _EmployeeNotificationsScreenState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${_getAllItems().where((item) => item['isRead'] == false).length}',
+                          '${_allItems.where((item) => item['isRead'] == false).length}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -247,7 +270,7 @@ class _EmployeeNotificationsScreenState
                               ],
                             ),
                           )
-                        : _getAllItems().isEmpty
+                        : _allItems.isEmpty
                             ? Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -281,9 +304,9 @@ class _EmployeeNotificationsScreenState
                             : ListView.builder(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 20),
-                                itemCount: _getAllItems().length,
+                                itemCount: _allItems.length,
                                 itemBuilder: (context, index) {
-                                  final item = _getAllItems()[index];
+                                  final item = _allItems[index];
                                   return _buildNotificationCard(
                                       item, localizations);
                                 },

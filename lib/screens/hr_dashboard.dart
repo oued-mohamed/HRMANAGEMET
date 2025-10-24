@@ -55,9 +55,13 @@ class _HRDashboardState extends State<HRDashboard>
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
     final isTablet = screenWidth > 600;
     final isDesktop = screenWidth > 900;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -80,155 +84,205 @@ class _HRDashboardState extends State<HRDashboard>
             opacity: _fadeAnimation,
             child: SlideTransition(
               position: _slideAnimation,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  // Modern App Bar
-                  SliverAppBar(
-                    expandedHeight: 120,
-                    floating: false,
-                    pinned: true,
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    leading: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // Modern App Bar
+                      SliverAppBar(
+                        expandedHeight:
+                            isVerySmallScreen ? 80 : (isSmallScreen ? 90 : 100),
+                        floating: false,
+                        pinned: true,
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        leading: Container(
+                          margin: EdgeInsets.all(isVerySmallScreen ? 4 : 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: IconButton(
+                            onPressed: () =>
+                                _scaffoldKey.currentState?.openDrawer(),
+                            icon: Icon(
+                              Icons.menu_rounded,
+                              color: Colors.white,
+                              size: isVerySmallScreen ? 18 : 22,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: IconButton(
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openDrawer(),
-                        icon: const Icon(
-                          Icons.menu_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    flexibleSpace: FlexibleSpaceBar(
-                      background: Container(
-                        padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Consumer<CompanyProvider>(
-                                builder: (context, companyProvider, child) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        'HR Dashboard',
-                                        style: TextStyle(
-                                          fontSize: isDesktop ? 32 : 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          letterSpacing: 0.5,
-                                          shadows: [
-                                            Shadow(
+                        flexibleSpace: FlexibleSpaceBar(
+                          background: Container(
+                            padding: EdgeInsets.fromLTRB(
+                                20,
+                                isVerySmallScreen
+                                    ? 35
+                                    : (isSmallScreen ? 40 : 45),
+                                20,
+                                isVerySmallScreen ? 8 : 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Consumer<CompanyProvider>(
+                                    builder: (context, companyProvider, child) {
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            'HR Dashboard',
+                                            style: TextStyle(
+                                              fontSize: isVerySmallScreen
+                                                  ? 16
+                                                  : (isSmallScreen
+                                                      ? 20
+                                                      : (isDesktop ? 28 : 24)),
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                              shadows: [
+                                                Shadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.3),
+                                                  offset: const Offset(0, 2),
+                                                  blurRadius: 4,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          SizedBox(
+                                              height:
+                                                  isVerySmallScreen ? 1 : 2),
+                                          Text(
+                                            companyProvider
+                                                    .currentCompany?.name ??
+                                                'Company',
+                                            style: TextStyle(
+                                              fontSize: isVerySmallScreen
+                                                  ? 10
+                                                  : (isSmallScreen
+                                                      ? 11
+                                                      : (isDesktop ? 14 : 12)),
+                                              color:
+                                                  Colors.white.withOpacity(0.8),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                                StreamBuilder<UserModel?>(
+                                  stream: UserService.instance.userStream,
+                                  initialData: UserService.instance.currentUser,
+                                  builder: (context, snapshot) {
+                                    return GestureDetector(
+                                      onTap: () => Navigator.pushNamed(
+                                          context, '/personal-info'),
+                                      child: Container(
+                                        width: isVerySmallScreen
+                                            ? 32
+                                            : (isSmallScreen
+                                                ? 36
+                                                : (isDesktop ? 50 : 40)),
+                                        height: isVerySmallScreen
+                                            ? 32
+                                            : (isSmallScreen
+                                                ? 36
+                                                : (isDesktop ? 50 : 40)),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFF667eea),
+                                              Color(0xFF764ba2)
+                                            ],
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
                                               color:
                                                   Colors.black.withOpacity(0.3),
-                                              offset: const Offset(0, 2),
-                                              blurRadius: 4,
+                                              blurRadius: 15,
+                                              offset: const Offset(0, 5),
                                             ),
                                           ],
+                                          border: Border.all(
+                                            color:
+                                                Colors.white.withOpacity(0.3),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: ClipOval(
+                                          child: _buildProfileAvatar(
+                                              snapshot.data),
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        companyProvider.currentCompany?.name ??
-                                            'Company',
-                                        style: TextStyle(
-                                          fontSize: isDesktop ? 16 : 14,
-                                          color: Colors.white.withOpacity(0.8),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                            StreamBuilder<UserModel?>(
-                              stream: UserService.instance.userStream,
-                              initialData: UserService.instance.currentUser,
-                              builder: (context, snapshot) {
-                                return GestureDetector(
-                                  onTap: () => Navigator.pushNamed(
-                                      context, '/personal-info'),
-                                  child: Container(
-                                    width: isDesktop ? 60 : 50,
-                                    height: isDesktop ? 60 : 50,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF667eea),
-                                          Color(0xFF764ba2)
-                                        ],
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.3),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 5),
-                                        ),
-                                      ],
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.3),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: ClipOval(
-                                      child: _buildProfileAvatar(snapshot.data),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  // Content
-                  SliverPadding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop ? 24 : 16,
-                      vertical: 16,
-                    ),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        // Welcome Card
-                        _buildWelcomeCard(isDesktop),
+                      // Content
+                      SliverPadding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isDesktop ? 24 : 16,
+                          vertical:
+                              isVerySmallScreen ? 4 : (isSmallScreen ? 6 : 8),
+                        ),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            // Welcome Card
+                            _buildWelcomeCard(isDesktop),
 
-                        const SizedBox(height: 24),
+                            SizedBox(
+                                height: isVerySmallScreen
+                                    ? 8
+                                    : (isSmallScreen ? 12 : 16)),
 
-                        // Quick Actions
-                        _buildQuickActionsSection(isTablet, isDesktop),
+                            // Quick Actions
+                            _buildQuickActionsSection(isTablet, isDesktop),
 
-                        const SizedBox(height: 32),
+                            SizedBox(
+                                height: isVerySmallScreen
+                                    ? 12
+                                    : (isSmallScreen ? 16 : 20)),
 
-                        // Statistics Cards
-                        _buildStatisticsSection(isTablet, isDesktop),
+                            // Statistics Cards
+                            _buildStatisticsSection(isTablet, isDesktop),
 
-                        const SizedBox(height: 32),
+                            SizedBox(
+                                height: isVerySmallScreen
+                                    ? 12
+                                    : (isSmallScreen ? 16 : 20)),
 
-                        // Recent Activity
-                        _buildActivitySection(isDesktop),
+                            // Recent Activity
+                            _buildActivitySection(isDesktop),
 
-                        const SizedBox(height: 24),
-                      ]),
-                    ),
-                  ),
-                ],
+                            // Add bottom padding to prevent overflow
+                            SizedBox(
+                                height: MediaQuery.of(context).padding.bottom +
+                                    (isVerySmallScreen
+                                        ? 20
+                                        : (isSmallScreen ? 30 : 40))),
+                          ]),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -238,8 +292,14 @@ class _HRDashboardState extends State<HRDashboard>
   }
 
   Widget _buildWelcomeCard(bool isDesktop) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Container(
-      padding: EdgeInsets.all(isDesktop ? 28 : 24),
+      padding: EdgeInsets.all(isVerySmallScreen
+          ? 12
+          : (isSmallScreen ? 16 : (isDesktop ? 20 : 18))),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF667eea), Color(0xFF764ba2)],
@@ -264,17 +324,24 @@ class _HRDashboardState extends State<HRDashboard>
                 Text(
                   'Welcome back! 👋',
                   style: TextStyle(
-                    fontSize: isDesktop ? 24 : 20,
+                    fontSize: isVerySmallScreen
+                        ? 18
+                        : (isSmallScreen ? 22 : (isDesktop ? 28 : 24)),
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(
+                    height: isVerySmallScreen ? 4 : (isSmallScreen ? 6 : 8)),
                 Text(
                   'Manage your team efficiently with our HR tools',
                   style: TextStyle(
-                    fontSize: isDesktop ? 16 : 14,
+                    fontSize: isVerySmallScreen
+                        ? 12
+                        : (isSmallScreen ? 13 : (isDesktop ? 16 : 14)),
                     color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
                     height: 1.4,
                   ),
                 ),
@@ -282,15 +349,18 @@ class _HRDashboardState extends State<HRDashboard>
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(
+                isVerySmallScreen ? 8 : (isSmallScreen ? 12 : 16)),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.dashboard_rounded,
               color: Colors.white,
-              size: 32,
+              size: isVerySmallScreen
+                  ? 20
+                  : (isSmallScreen ? 24 : (isDesktop ? 32 : 28)),
             ),
           ),
         ],
@@ -299,26 +369,34 @@ class _HRDashboardState extends State<HRDashboard>
   }
 
   Widget _buildQuickActionsSection(bool isTablet, bool isDesktop) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Quick Actions',
           style: TextStyle(
-            fontSize: isDesktop ? 24 : 20,
+            fontSize: isVerySmallScreen
+                ? 18
+                : (isSmallScreen ? 20 : (isDesktop ? 24 : 20)),
             fontWeight: FontWeight.bold,
             color: Colors.white,
             letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12)),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: isDesktop ? 4 : (isTablet ? 3 : 2),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: isDesktop ? 1.1 : 1.0,
+          mainAxisSpacing: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12),
+          crossAxisSpacing: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12),
+          childAspectRatio: isDesktop
+              ? 1.4
+              : (isVerySmallScreen ? 1.6 : (isSmallScreen ? 1.5 : 1.3)),
           children: [
             _buildActionCard(
               'Pending Approvals',
@@ -366,13 +444,19 @@ class _HRDashboardState extends State<HRDashboard>
     VoidCallback onTap,
     bool isDesktop,
   ) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: EdgeInsets.all(isDesktop ? 20 : 16),
+          padding: EdgeInsets.all(isDesktop
+              ? 14
+              : (isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12))),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
@@ -390,20 +474,29 @@ class _HRDashboardState extends State<HRDashboard>
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
                 children: [
                   Container(
-                    width: isDesktop ? 50 : 40,
-                    height: isDesktop ? 50 : 40,
+                    width: isDesktop
+                        ? 40
+                        : (isVerySmallScreen ? 28 : (isSmallScreen ? 32 : 36)),
+                    height: isDesktop
+                        ? 40
+                        : (isVerySmallScreen ? 28 : (isSmallScreen ? 32 : 36)),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       icon,
                       color: color,
-                      size: isDesktop ? 24 : 20,
+                      size: isDesktop
+                          ? 20
+                          : (isVerySmallScreen
+                              ? 14
+                              : (isSmallScreen ? 16 : 18)),
                     ),
                   ),
                   if (count.isNotEmpty)
@@ -411,21 +504,27 @@ class _HRDashboardState extends State<HRDashboard>
                       right: -2,
                       top: -2,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: EdgeInsets.all(
+                            isVerySmallScreen ? 1 : (isSmallScreen ? 2 : 3)),
                         decoration: BoxDecoration(
                           color: color,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white, width: 2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 20,
-                          minHeight: 20,
+                        constraints: BoxConstraints(
+                          minWidth: isVerySmallScreen
+                              ? 14
+                              : (isSmallScreen ? 16 : 18),
+                          minHeight: isVerySmallScreen
+                              ? 14
+                              : (isSmallScreen ? 16 : 18),
                         ),
                         child: Text(
                           count,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize:
+                                isVerySmallScreen ? 7 : (isSmallScreen ? 8 : 9),
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -434,17 +533,24 @@ class _HRDashboardState extends State<HRDashboard>
                     ),
                 ],
               ),
-              SizedBox(height: isDesktop ? 12 : 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: isDesktop ? 14 : 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              SizedBox(
+                  height: isDesktop
+                      ? 8
+                      : (isVerySmallScreen ? 4 : (isSmallScreen ? 6 : 7))),
+              Flexible(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isDesktop
+                        ? 12
+                        : (isVerySmallScreen ? 9 : (isSmallScreen ? 10 : 11)),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -454,26 +560,34 @@ class _HRDashboardState extends State<HRDashboard>
   }
 
   Widget _buildStatisticsSection(bool isTablet, bool isDesktop) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Statistics Overview',
           style: TextStyle(
-            fontSize: isDesktop ? 24 : 20,
+            fontSize: isVerySmallScreen
+                ? 18
+                : (isSmallScreen ? 20 : (isDesktop ? 24 : 20)),
             fontWeight: FontWeight.bold,
             color: Colors.white,
             letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12)),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: isDesktop ? 4 : (isTablet ? 2 : 2),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: isDesktop ? 1.2 : 1.1,
+          mainAxisSpacing: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12),
+          crossAxisSpacing: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12),
+          childAspectRatio: isDesktop
+              ? 1.6
+              : (isVerySmallScreen ? 1.8 : (isSmallScreen ? 1.7 : 1.5)),
           children: [
             _buildStatCard(
               'Total Employees',
@@ -521,11 +635,16 @@ class _HRDashboardState extends State<HRDashboard>
     String trend,
     bool isDesktop,
   ) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Container(
-      padding: EdgeInsets.all(isDesktop ? 24 : 20),
+      padding: EdgeInsets.all(
+          isDesktop ? 16 : (isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12))),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white.withOpacity(0.2),
           width: 1,
@@ -533,42 +652,53 @@ class _HRDashboardState extends State<HRDashboard>
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                width: isDesktop ? 50 : 40,
-                height: isDesktop ? 50 : 40,
+                width: isDesktop
+                    ? 40
+                    : (isVerySmallScreen ? 28 : (isSmallScreen ? 32 : 36)),
+                height: isDesktop
+                    ? 40
+                    : (isVerySmallScreen ? 28 : (isSmallScreen ? 32 : 36)),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: isDesktop ? 24 : 20,
+                  size: isDesktop
+                      ? 20
+                      : (isVerySmallScreen ? 14 : (isSmallScreen ? 16 : 18)),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isVerySmallScreen ? 4 : (isSmallScreen ? 6 : 8),
+                    vertical: isVerySmallScreen ? 1 : (isSmallScreen ? 2 : 4)),
                 decoration: BoxDecoration(
                   color: trend.startsWith('+')
                       ? Colors.green.withOpacity(0.2)
                       : Colors.red.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   trend,
                   style: TextStyle(
-                    fontSize: isDesktop ? 12 : 10,
+                    fontSize: isDesktop
+                        ? 10
+                        : (isVerySmallScreen ? 7 : (isSmallScreen ? 8 : 9)),
                     fontWeight: FontWeight.bold,
                     color: trend.startsWith('+') ? Colors.green : Colors.red,
                   ),
@@ -576,26 +706,38 @@ class _HRDashboardState extends State<HRDashboard>
               ),
             ],
           ),
-          SizedBox(height: isDesktop ? 16 : 12),
+          SizedBox(
+              height: isDesktop
+                  ? 12
+                  : (isVerySmallScreen ? 6 : (isSmallScreen ? 8 : 10))),
           Text(
             value,
             style: TextStyle(
-              fontSize: isDesktop ? 32 : 28,
+              fontSize: isDesktop
+                  ? 24
+                  : (isVerySmallScreen ? 18 : (isSmallScreen ? 20 : 22)),
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: isDesktop ? 8 : 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: isDesktop ? 14 : 12,
-              color: Colors.white.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
+          SizedBox(
+              height: isDesktop
+                  ? 6
+                  : (isVerySmallScreen ? 3 : (isSmallScreen ? 4 : 5))),
+          Flexible(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: isDesktop
+                    ? 12
+                    : (isVerySmallScreen ? 9 : (isSmallScreen ? 10 : 11)),
+                color: Colors.white.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -603,21 +745,29 @@ class _HRDashboardState extends State<HRDashboard>
   }
 
   Widget _buildActivitySection(bool isDesktop) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Recent Activity',
           style: TextStyle(
-            fontSize: isDesktop ? 24 : 20,
+            fontSize: isVerySmallScreen
+                ? 18
+                : (isSmallScreen ? 20 : (isDesktop ? 24 : 20)),
             fontWeight: FontWeight.bold,
             color: Colors.white,
             letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: isVerySmallScreen ? 8 : (isSmallScreen ? 10 : 12)),
         Container(
-          padding: EdgeInsets.all(isDesktop ? 24 : 20),
+          padding: EdgeInsets.all(isVerySmallScreen
+              ? 12
+              : (isSmallScreen ? 14 : (isDesktop ? 20 : 16))),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
@@ -644,7 +794,7 @@ class _HRDashboardState extends State<HRDashboard>
                 'Pending',
                 isDesktop,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildActivityItem(
                 'Leave approved for Sarah',
                 'Sick leave for Nov 15',
@@ -654,7 +804,7 @@ class _HRDashboardState extends State<HRDashboard>
                 'Approved',
                 isDesktop,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildActivityItem(
                 'New employee added',
                 'Mike Johnson - Developer',

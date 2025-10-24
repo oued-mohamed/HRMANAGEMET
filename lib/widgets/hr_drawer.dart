@@ -98,7 +98,135 @@ class _HRDrawerState extends State<HRDrawer> {
 
                         const Divider(color: Colors.white30, thickness: 1),
 
-                        // Gestion des employés
+                        // 1. Mon profil
+                        _buildExpandableMenuItem(
+                          context: context,
+                          localizations: localizations,
+                          icon: Icons.person_outline,
+                          title: localizations.translate('my_profile'),
+                          children: [
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations
+                                  .translate('personal_employment_info'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(context, '/personal-info');
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title:
+                                  localizations.translate('personal_documents'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(
+                                    context, '/personal-documents');
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title:
+                                  localizations.translate('profile_settings'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(
+                                    context, '/profile-settings');
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 2. Congés
+                        _buildExpandableMenuItem(
+                          context: context,
+                          localizations: localizations,
+                          icon: Icons.event_available,
+                          title: localizations.translate('leaves'),
+                          children: [
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('request_leave'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(context, '/leave-request');
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('leave_balance'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(context, '/leave-balance');
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title:
+                                  localizations.translate('unexpected_absence'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showSnackBar(
+                                    context,
+                                    localizations
+                                        .translate('unexpected_absence'));
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('calendar'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(context, '/leave-calendar');
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 3. Temps de travail
+                        _buildExpandableMenuItem(
+                          context: context,
+                          localizations: localizations,
+                          icon: Icons.access_time,
+                          title: localizations.translate('work_time'),
+                          children: [
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('punch_in_out'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showSnackBar(context,
+                                    localizations.translate('punch_in_out'));
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('punch_history'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showSnackBar(context,
+                                    localizations.translate('punch_history'));
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 4. Gestion des employés (HR specific)
                         ListTile(
                           leading:
                               const Icon(Icons.people, color: Colors.white),
@@ -116,25 +244,7 @@ class _HRDrawerState extends State<HRDrawer> {
                           },
                         ),
 
-                        // Demander un congé
-                        ListTile(
-                          leading: const Icon(Icons.add_circle_outline,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('request_leave'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/leave-request');
-                          },
-                        ),
-
-                        // Gestion des congés
+                        // 5. Gestion des congés (HR specific)
                         ListTile(
                           leading: const Icon(Icons.event_available,
                               color: Colors.white),
@@ -152,52 +262,14 @@ class _HRDrawerState extends State<HRDrawer> {
                           },
                         ),
 
-                        // Présence & temps
-                        ListTile(
-                          leading: const Icon(Icons.access_time,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('attendance_time'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showSnackBar(context,
-                                localizations.translate('attendance_time'));
-                          },
-                        ),
-
-                        // Paie
-                        ListTile(
-                          leading: const Icon(Icons.account_balance_wallet,
-                              color: Colors.white),
-                          title: Text(
-                            localizations.translate('payroll'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showSnackBar(
-                                context, localizations.translate('payroll'));
-                          },
-                        ),
-
-                        // Notifications
+                        // 6. Notifications RH
                         ListTile(
                           leading: const Icon(
                             Icons.notifications_outlined,
                             color: Colors.white,
                           ),
                           title: Text(
-                            localizations.translate('notifications'),
+                            localizations.translate('hr_notifications'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -268,6 +340,68 @@ class _HRDrawerState extends State<HRDrawer> {
         size: 40,
         color: Color(0xFF000B58),
       ),
+    );
+  }
+
+  Widget _buildExpandableMenuItem({
+    required BuildContext context,
+    required AppLocalizations localizations,
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Icon(icon, color: Colors.white),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        iconColor: Colors.white,
+        collapsedIconColor: Colors.white,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.only(left: 16, right: 8, bottom: 4),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildSubMenuItem({
+    required BuildContext context,
+    required AppLocalizations localizations,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -3),
+      contentPadding: const EdgeInsets.only(left: 16, right: 12),
+      horizontalTitleGap: 8,
+      minLeadingWidth: 0,
+      leading: Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Icon(
+          Icons.circle,
+          size: 9,
+          color: Colors.white
+              .withOpacity(0.6), // Changed from white54 to more visible
+        ),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: Colors.white
+              .withOpacity(0.85), // Changed from white70 to better contrast
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 

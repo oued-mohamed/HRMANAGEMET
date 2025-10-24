@@ -6,6 +6,8 @@ import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
+import '../services/odoo_service.dart';
+import '../services/notification_service.dart';
 import '../data/models/user_model.dart';
 
 class EmployeeDashboard extends StatefulWidget {
@@ -18,15 +20,32 @@ class EmployeeDashboard extends StatefulWidget {
 class _EmployeeDashboardState extends State<EmployeeDashboard> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final OdooService _odooService = OdooService();
+  final NotificationService _notificationService = NotificationService();
+
+  int _unreadCount = 0;
+  bool _isLoadingNotifications = true;
 
   @override
   void initState() {
     super.initState();
     // Initialiser le service utilisateur
     UserService.instance.initialize();
+    _notificationService.addListener(_onNotificationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadLeaveBalance();
+      _loadNotifications();
     });
+  }
+
+  @override
+  void dispose() {
+    _notificationService.removeListener(_onNotificationChanged);
+    super.dispose();
+  }
+
+  void _onNotificationChanged() {
+    _loadNotifications();
   }
 
   Future<void> _loadLeaveBalance() async {
@@ -41,6 +60,22 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
     final leaveProvider = Provider.of<LeaveProvider>(context, listen: false);
     await leaveProvider.loadLeaveBalance();
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final notifications = await _odooService.getUnreadNotifications();
+
+      setState(() {
+        _unreadCount = notifications.where((n) => n['is_read'] == false).length;
+        _isLoadingNotifications = false;
+      });
+    } catch (e) {
+      print('Error loading notifications for dashboard: $e');
+      setState(() {
+        _isLoadingNotifications = false;
+      });
+    }
   }
 
   @override
@@ -219,9 +254,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                             child: _buildNotificationCard(
                               title:
                                   localizations.translate('hr_notifications'),
-                              value: '5',
+                              value: _isLoadingNotifications
+                                  ? '-'
+                                  : _unreadCount.toString(),
                               subtitle: localizations.translate('unread'),
                               color: const Color(0xFF000B58),
+                              onTap: () {
+                                Navigator.pushNamed(
+                                    context, '/employee-notifications');
+                              },
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -460,64 +501,68 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     required String value,
     required String subtitle,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      height: 180,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          // Icon in top end (adapts to LTR/RTL)
-          PositionedDirectional(
-            top: 0,
-            end: 0,
-            child: Icon(
-              Icons.notifications_active,
-              size: 32,
-              color: Colors.white.withOpacity(0.9),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 180,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            // Icon in top end (adapts to LTR/RTL)
+            PositionedDirectional(
+              top: 0,
+              end: 0,
+              child: Icon(
+                Icons.notifications_active,
+                size: 32,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
