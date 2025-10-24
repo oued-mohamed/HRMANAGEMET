@@ -53,6 +53,20 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
     }
   }
 
+  // Helper function to strip HTML tags from text
+  String _stripHtmlTags(String htmlString) {
+    if (htmlString.isEmpty) return '';
+
+    // Remove HTML tags using regex
+    RegExp htmlTagRegex = RegExp(r'<[^>]*>');
+    String stripped = htmlString.replaceAll(htmlTagRegex, '');
+
+    // Clean up extra whitespace and newlines
+    stripped = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return stripped;
+  }
+
   Future<void> _updateTaskStatus(int taskId, String newStatus) async {
     try {
       final success = await _odooService.updateTaskStage(
@@ -311,7 +325,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                                     Padding(
                                       padding: EdgeInsets.only(bottom: 8),
                                       child: Text(
-                                        task['description'],
+                                        _stripHtmlTags(
+                                            task['description'].toString()),
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                           fontSize: 14,
@@ -413,7 +428,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                 Padding(
                   padding: EdgeInsets.only(bottom: 12),
                   child: Text(
-                    task['description'],
+                    _stripHtmlTags(task['description'].toString()),
                     style: TextStyle(fontSize: 14),
                   ),
                 ),

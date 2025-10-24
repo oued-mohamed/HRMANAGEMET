@@ -1729,12 +1729,11 @@ class OdooService {
     return holidayDates;
   }
 
-  // Get approved leaves for calendar display
+  // Get approved leaves for calendar display - ALL COMPANY EMPLOYEES
   Future<List<Map<String, dynamic>>> getApprovedLeaves(int year) async {
-    print('Loading approved leaves for year $year...');
-    final employeeId = await getCurrentEmployeeId();
+    print('Loading approved leaves for year $year... (ALL COMPANY EMPLOYEES)');
 
-    print('Fetching approved employee leave requests...');
+    print('Fetching approved leave requests for all employees...');
     print('  State filter: validate');
     print('  Year filter: $year');
 
@@ -1747,7 +1746,6 @@ class OdooService {
         'search_read',
         [
           [
-            ['employee_id', '=', employeeId],
             ['state', '=', 'validate'], // Only approved leaves
             ['date_from', '>=', '$year-01-01'],
             ['date_to', '<=', '$year-12-31']
@@ -1795,7 +1793,7 @@ class OdooService {
         }
       }
 
-      print('Loaded ${leaves.length} approved leaves');
+      print('Loaded ${leaves.length} approved leaves for all employees');
       return leaves;
     } catch (e) {
       print('Error fetching approved leave requests: $e');
@@ -1803,12 +1801,11 @@ class OdooService {
     }
   }
 
-  // Get pending leaves for calendar display
+  // Get pending leaves for calendar display - ALL COMPANY EMPLOYEES
   Future<List<Map<String, dynamic>>> getPendingLeaves(int year) async {
-    print('Loading pending leaves for year $year...');
-    final employeeId = await getCurrentEmployeeId();
+    print('Loading pending leaves for year $year... (ALL COMPANY EMPLOYEES)');
 
-    print('Fetching pending employee leave requests...');
+    print('Fetching pending leave requests for all employees...');
     print('  State filter: confirm, draft, validate1');
     print('  Year filter: $year');
 
@@ -1821,7 +1818,6 @@ class OdooService {
         'search_read',
         [
           [
-            ['employee_id', '=', employeeId],
             [
               'state',
               'in',
@@ -1874,7 +1870,7 @@ class OdooService {
         }
       }
 
-      print('Loaded ${leaves.length} pending leaves');
+      print('Loaded ${leaves.length} pending leaves for all employees');
       return leaves;
     } catch (e) {
       print('Error fetching pending leave requests: $e');

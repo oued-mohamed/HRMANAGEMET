@@ -66,6 +66,24 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
   bool _isSameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  // Helper method to extract employee name from employee_id field
+  String _getEmployeeName(dynamic employeeId) {
+    if (employeeId == null) return 'Inconnu';
+
+    // In Odoo, employee_id is typically a tuple [id, "Employee Name"]
+    if (employeeId is List && employeeId.length >= 2) {
+      return employeeId[1].toString();
+    }
+
+    // If it's just a string, return it
+    if (employeeId is String) {
+      return employeeId;
+    }
+
+    // If it's just an ID, return a generic name
+    return 'Employé #$employeeId';
+  }
+
   void _showLeaveInfoForDate(
       BuildContext context, LeaveProvider leaveProvider, DateTime date) {
     final approvedLeaves = leaveProvider.approvedLeaves ?? [];
@@ -443,7 +461,8 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                 SizedBox(
                   height: 120,
                   child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 5,
                       childAspectRatio: 2,
                       crossAxisSpacing: 4,
@@ -502,7 +521,8 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
                 const SizedBox(height: 8),
                 Expanded(
                   child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       childAspectRatio: 2.5,
                       crossAxisSpacing: 8,
@@ -709,7 +729,7 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendrier des congés'),
+        title: const Text('Calendrier des congés - Tous les employés'),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,
       ),
@@ -935,7 +955,7 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          'Congés prévus (${_selectedDayLeaves.length})',
+          'Congés prévus - Tous les employés (${_selectedDayLeaves.length})',
           style: TextStyle(
             fontSize: titleFontSize,
             fontWeight: FontWeight.w600,
@@ -1017,7 +1037,7 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
           ),
           SizedBox(height: spacing),
           Text(
-            'Employé: Vous',
+            'Employé: ${_getEmployeeName(leave['employee_id'])}',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: subtitleFontSize,
