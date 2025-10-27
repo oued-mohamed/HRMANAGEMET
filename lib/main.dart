@@ -67,9 +67,9 @@ class HRManagementApp extends StatelessWidget {
             ),
             locale: languageProvider.locale,
             supportedLocales: const [
-              Locale('en', 'US'),
-              Locale('fr', 'FR'),
-              Locale('ar', 'MA'),
+              Locale('fr', 'FR'), // Primary: French
+              Locale('en', 'US'), // English
+              Locale('ar', 'MA'), // Arabic
             ],
             localizationsDelegates: const [
               AppLocalizations.delegate,

@@ -228,6 +228,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                                       localizations.translate('days_available'),
                                   color: const Color(0xFF35BF8C),
                                   chart: _buildBarChart(),
+                                  onTap: () {
+                                    Navigator.pushNamed(
+                                        context, '/leave-balance');
+                                  },
                                 );
                               },
                             ),
@@ -407,57 +411,61 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     required Color color,
     required Widget chart,
     Color textColor = Colors.white,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      height: 180,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 180,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (subtitle != null)
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              subtitle,
-              style: TextStyle(
-                color: textColor.withOpacity(0.8),
-                fontSize: 12,
-              ),
-            ),
-          const SizedBox(height: 8),
-          if (value != null)
-            Text(
-              value,
+              title,
               style: TextStyle(
                 color: textColor,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          const Spacer(),
-          Expanded(
-            flex: 2,
-            child: chart,
-          ),
-        ],
+            const SizedBox(height: 8),
+            if (subtitle != null)
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: textColor.withOpacity(0.8),
+                  fontSize: 12,
+                ),
+              ),
+            const SizedBox(height: 8),
+            if (value != null)
+              Text(
+                value,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            const Spacer(),
+            Expanded(
+              flex: 2,
+              child: chart,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -521,6 +529,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         ),
         child: Stack(
           children: [
+            // Text content
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -531,6 +540,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -539,6 +550,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 12,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -548,6 +561,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -555,10 +570,29 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             PositionedDirectional(
               top: 0,
               end: 0,
-              child: Icon(
-                Icons.notifications_active,
-                size: 32,
-                color: Colors.white.withOpacity(0.9),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    Icons.notifications_active,
+                    size: 32,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                  // Notification badge indicator
+                  if (value != '0' && value != '-')
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],

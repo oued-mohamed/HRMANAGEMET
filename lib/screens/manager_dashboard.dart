@@ -235,6 +235,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         const Color(0xFF000B58),
                                         const Color(0xFF000B58),
                                         localizations,
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                              context, '/manager-employees');
+                                        },
                                       ),
                                       _buildModernStatCard(
                                         localizations
@@ -244,6 +248,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         const Color(0xFFF59E0B),
                                         const Color(0xFFD97706),
                                         localizations,
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                              context, '/leave-management');
+                                        },
                                       ),
                                       _buildModernStatCard(
                                         localizations
@@ -306,8 +314,9 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     IconData icon,
     Color startColor,
     Color endColor,
-    AppLocalizations localizations,
-  ) {
+    AppLocalizations localizations, {
+    VoidCallback? onTap,
+  }) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -328,7 +337,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () {},
+          onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

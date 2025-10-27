@@ -140,8 +140,6 @@ class _HRDrawerState extends State<HRDrawer> {
                           ],
                         ),
 
-                        const Divider(color: Colors.white30, thickness: 1),
-
                         // 2. Congés
                         _buildExpandableMenuItem(
                           context: context,
@@ -192,8 +190,6 @@ class _HRDrawerState extends State<HRDrawer> {
                           ],
                         ),
 
-                        const Divider(color: Colors.white30, thickness: 1),
-
                         // 3. Temps de travail
                         _buildExpandableMenuItem(
                           context: context,
@@ -223,8 +219,6 @@ class _HRDrawerState extends State<HRDrawer> {
                             ),
                           ],
                         ),
-
-                        const Divider(color: Colors.white30, thickness: 1),
 
                         // 4. Gestion des employés (HR specific)
                         ListTile(
