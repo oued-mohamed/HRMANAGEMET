@@ -203,8 +203,7 @@ class _HRDrawerState extends State<HRDrawer> {
                               title: localizations.translate('punch_in_out'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(context,
-                                    localizations.translate('punch_in_out'));
+                                Navigator.pushNamed(context, '/attendance');
                               },
                             ),
                             _buildSubMenuItem(

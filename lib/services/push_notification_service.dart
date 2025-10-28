@@ -14,6 +14,9 @@ class OdooNotificationService {
   Timer? _pollingTimer;
   bool _isPolling = false;
 
+  // Track which notifications have been shown to avoid duplicates
+  final Set<int> _shownNotificationIds = {};
+
   // Initialize the Odoo notification service
   Future<void> initialize() async {
     try {
@@ -99,9 +102,14 @@ class OdooNotificationService {
       final notifications = await OdooService().getUnreadNotifications();
 
       for (final notification in notifications) {
-        await _showLocalNotification(notification);
-        // Mark as read in Odoo
-        await OdooService().markNotificationAsRead(notification['id']);
+        final notificationId = notification['id'] as int;
+
+        // Only show notifications that haven't been shown before
+        if (!_shownNotificationIds.contains(notificationId)) {
+          await _showLocalNotification(notification);
+          // Track that this notification has been shown
+          _shownNotificationIds.add(notificationId);
+        }
       }
     } catch (e) {
       print('❌ Error checking notifications: $e');
@@ -132,13 +140,36 @@ class OdooNotificationService {
       iOS: iOSPlatformChannelSpecifics,
     );
 
+    // Strip HTML tags from the message
+    String cleanMessage = _stripHtmlTags(
+        notification['message'] ?? 'You have a new notification');
+
     await _localNotifications.show(
       notification['id'],
-      notification['title'] ?? 'HR Notification',
-      notification['message'] ?? 'You have a new notification',
+      _stripHtmlTags(notification['title'] ?? 'HR Notification'),
+      cleanMessage,
       platformChannelSpecifics,
       payload: notification.toString(),
     );
+  }
+
+  // Remove HTML tags from string
+  String _stripHtmlTags(String htmlString) {
+    // Remove HTML tags using regex
+    String cleaned = htmlString.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    // Decode common HTML entities
+    cleaned = cleaned.replaceAll('&amp;', '&');
+    cleaned = cleaned.replaceAll('&lt;', '<');
+    cleaned = cleaned.replaceAll('&gt;', '>');
+    cleaned = cleaned.replaceAll('&quot;', '"');
+    cleaned = cleaned.replaceAll('&#39;', "'");
+    cleaned = cleaned.replaceAll('&nbsp;', ' ');
+
+    // Clean up excessive whitespace
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return cleaned;
   }
 
   // Handle notification tap

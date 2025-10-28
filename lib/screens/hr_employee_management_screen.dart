@@ -7,7 +7,13 @@ import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 
 class HREmployeeManagementScreen extends StatefulWidget {
-  const HREmployeeManagementScreen({super.key});
+  final bool
+      showAllEmployees; // Show all employees under management (manager mode)
+
+  const HREmployeeManagementScreen({
+    super.key,
+    this.showAllEmployees = false, // Default: only direct reports
+  });
 
   @override
   State<HREmployeeManagementScreen> createState() =>
@@ -18,6 +24,7 @@ class _HREmployeeManagementScreenState
     extends State<HREmployeeManagementScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _employees = [];
+  Set<int> _directReportIds = {}; // Track IDs of direct reports
   bool _isLoading = true;
   String _searchQuery = '';
 
@@ -28,33 +35,44 @@ class _HREmployeeManagementScreenState
   }
 
   Future<void> _loadEmployees() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // Fetch only direct reports for the current manager
-      // This ensures managers can only assign tasks to their direct team members
-      final employees = await OdooService().getDirectReports();
+      // First, get direct reports to track which employees can receive tasks
+      final directReports = await OdooService().getDirectReports();
+      _directReportIds = directReports.map((e) => e['id'] as int).toSet();
 
-      // If no direct reports found, try fallback method for debugging
-      if (employees.isEmpty) {
-        print('🔄 No direct reports found, trying fallback method...');
-        final fallbackEmployees =
+      print('📊 Direct reports found: ${directReports.length}');
+      print('🔑 Direct report IDs: $_directReportIds');
+
+      if (widget.showAllEmployees) {
+        // Manager mode: Get all employees under management (direct + indirect)
+        final allEmployees =
             await OdooService().getAllEmployeesUnderManagement();
-        print(
-            '📊 Fallback method returned ${fallbackEmployees.length} employees');
+        print('📊 All employees under management: ${allEmployees.length}');
 
-        setState(() {
-          _employees = fallbackEmployees;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _employees = allEmployees;
+            _isLoading = false;
+          });
+        }
       } else {
-        setState(() {
-          _employees = employees;
-          _isLoading = false;
-        });
+        // HR mode: Only show direct reports
+        print('📊 Showing only direct reports: ${directReports.length}');
+
+        if (mounted) {
+          setState(() {
+            _employees = directReports;
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      print('Error loading direct reports: $e');
-      setState(() => _isLoading = false);
+      print('Error loading employees: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -136,7 +154,9 @@ class _HREmployeeManagementScreenState
                             ),
                           ),
                           Text(
-                            '${_employees.length} ${localizations.translate('my_direct_reports')}',
+                            widget.showAllEmployees
+                                ? '${_employees.length} ${localizations.translate('employees')}'
+                                : '${_employees.length} ${localizations.translate('my_direct_reports')}',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white.withOpacity(0.9),
@@ -295,6 +315,10 @@ class _HREmployeeManagementScreenState
     final department = employee['department_id'] is List
         ? employee['department_id'][1].toString()
         : localizations.translate('no_department');
+
+    // Check if this employee is a direct report (can receive tasks)
+    final isDirectReport = _directReportIds.contains(employee['id']);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -387,15 +411,22 @@ class _HREmployeeManagementScreenState
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        _showAssignTaskDialog(employee, localizations),
-                    icon: const Icon(Icons.assignment, size: 14),
+                    onPressed: isDirectReport
+                        ? () => _showAssignTaskDialog(employee, localizations)
+                        : null, // Disable for indirect reports
+                    icon: Icon(Icons.assignment,
+                        size: 14,
+                        color: isDirectReport ? Colors.white : Colors.grey),
                     label: Text(
                       localizations.translate('assign_task'),
-                      style: const TextStyle(fontSize: 11),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDirectReport ? Colors.white : Colors.grey),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF35BF8C),
+                      backgroundColor: isDirectReport
+                          ? const Color(0xFF35BF8C)
+                          : Colors.grey[300],
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       shape: RoundedRectangleBorder(

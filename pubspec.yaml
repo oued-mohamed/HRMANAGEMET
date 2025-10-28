@@ -44,6 +44,10 @@ dependencies:
   
   # Notifications (Odoo-based)
   flutter_local_notifications: ^17.2.1
+  
+  # Geolocation
+  geolocator: ^11.0.0
+  permission_handler: ^11.2.0
 
   
   # For Odoo XML-RPC

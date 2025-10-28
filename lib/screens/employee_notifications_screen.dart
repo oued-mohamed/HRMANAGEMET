@@ -673,7 +673,20 @@ class _EmployeeNotificationsScreenState
 
   String _stripHtmlTags(String htmlString) {
     // Remove HTML tags using regex
-    return htmlString.replaceAll(RegExp(r'<[^>]*>'), '');
+    String cleaned = htmlString.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    // Decode common HTML entities
+    cleaned = cleaned.replaceAll('&amp;', '&');
+    cleaned = cleaned.replaceAll('&lt;', '<');
+    cleaned = cleaned.replaceAll('&gt;', '>');
+    cleaned = cleaned.replaceAll('&quot;', '"');
+    cleaned = cleaned.replaceAll('&#39;', "'");
+    cleaned = cleaned.replaceAll('&nbsp;', ' ');
+
+    // Clean up excessive whitespace
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return cleaned;
   }
 
   String _convertToIsoString(dynamic date) {

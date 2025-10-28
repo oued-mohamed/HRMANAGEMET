@@ -28,6 +28,9 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
   int _pendingLeavesCount = 0;
   bool _isLoadingPendingLeaves = true;
 
+  int _totalEmployeesCount = 0;
+  bool _isLoadingEmployeesCount = true;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +41,7 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
       _loadLeaveBalance();
       _loadNotifications();
       _loadPendingLeavesCount();
+      _loadEmployeesCount();
     });
   }
 
@@ -95,6 +99,38 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
       print('Error loading pending leaves count: $e');
       setState(() {
         _isLoadingPendingLeaves = false;
+      });
+    }
+  }
+
+  Future<void> _loadEmployeesCount() async {
+    try {
+      setState(() => _isLoadingEmployeesCount = true);
+
+      // Get direct reports first (same logic as employee management screen)
+      final directReports = await _odooService.getDirectReports();
+
+      // If no direct reports, use fallback method (all employees under management)
+      if (directReports.isEmpty) {
+        print('🔄 No direct reports found, trying fallback method...');
+        final fallbackEmployees =
+            await _odooService.getAllEmployeesUnderManagement();
+        setState(() {
+          _totalEmployeesCount = fallbackEmployees.length;
+          _isLoadingEmployeesCount = false;
+        });
+        print('Loaded ${fallbackEmployees.length} employees (fallback)');
+      } else {
+        setState(() {
+          _totalEmployeesCount = directReports.length;
+          _isLoadingEmployeesCount = false;
+        });
+        print('Loaded ${directReports.length} direct reports');
+      }
+    } catch (e) {
+      print('Error loading employees count: $e');
+      setState(() {
+        _isLoadingEmployeesCount = false;
       });
     }
   }
@@ -231,7 +267,9 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
                                 return _buildMetricCard(
                                   title: localizations
                                       .translate('total_employees'),
-                                  value: '24',
+                                  value: _isLoadingEmployeesCount
+                                      ? '-'
+                                      : _totalEmployeesCount.toString(),
                                   subtitle:
                                       localizations.translate('active_staff'),
                                   color: const Color(0xFF35BF8C),

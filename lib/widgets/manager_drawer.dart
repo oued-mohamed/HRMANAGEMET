@@ -140,8 +140,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                           ],
                         ),
 
-                        const Divider(color: Colors.white30, thickness: 1),
-
                         // 2. Congés
                         _buildExpandableMenuItem(
                           context: context,
@@ -192,8 +190,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                           ],
                         ),
 
-                        const Divider(color: Colors.white30, thickness: 1),
-
                         // 3. Temps de travail
                         _buildExpandableMenuItem(
                           context: context,
@@ -207,8 +203,7 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               title: localizations.translate('punch_in_out'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(context,
-                                    localizations.translate('punch_in_out'));
+                                Navigator.pushNamed(context, '/attendance');
                               },
                             ),
                             _buildSubMenuItem(
@@ -217,8 +212,8 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               title: localizations.translate('punch_history'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(context,
-                                    localizations.translate('punch_history'));
+                                Navigator.pushNamed(
+                                    context, '/attendance-history');
                               },
                             ),
                           ],

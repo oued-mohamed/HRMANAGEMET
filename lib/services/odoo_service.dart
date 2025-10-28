@@ -3245,7 +3245,55 @@ class OdooService {
         final faultValue = fault.findAllElements('value').firstOrNull;
         if (faultValue != null) {
           final faultStruct = _parseValue(faultValue);
-          throw Exception('XML-RPC fault: ${faultStruct['faultString']}');
+
+          // Extract the full error message
+          String errorMessage = 'XML-RPC fault occurred';
+
+          if (faultStruct is Map) {
+            // Try to get faultString or message
+            final faultString =
+                faultStruct['faultString'] ?? faultStruct['message'] ?? '';
+
+            // Check if there's a traceback (common in Odoo errors)
+            if (faultString is String && faultString.contains('Traceback')) {
+              // Try to extract just the actual error message from the traceback
+              // In Python tracebacks, the actual exception is at the end
+              final lines = faultString.split('\n');
+
+              // Find the last non-empty line which usually contains the actual error
+              String? lastErrorLine;
+              for (int i = lines.length - 1; i >= 0; i--) {
+                final line = lines[i].trim();
+                if (line.isNotEmpty &&
+                    !line.startsWith('File') &&
+                    !line.contains('line')) {
+                  lastErrorLine = line;
+                  break;
+                }
+              }
+
+              // If we found a line with the actual error, use it
+              if (lastErrorLine != null && lastErrorLine.isNotEmpty) {
+                errorMessage = lastErrorLine;
+              } else {
+                // Fallback: show last 3 lines
+                final lastLines =
+                    lines.where((l) => l.trim().isNotEmpty).take(3).join('\n');
+                errorMessage = lastLines;
+              }
+            } else if (faultString is String) {
+              errorMessage = faultString;
+            } else {
+              // If faultString is a Map (structured error), try to extract readable message
+              final faultCode = faultStruct['faultCode'] ?? '';
+              errorMessage =
+                  'XML-RPC fault (Code: $faultCode): ${faultStruct.toString()}';
+            }
+          }
+
+          print('Full fault structure: $faultStruct');
+          print('Extracted error message: $errorMessage');
+          throw Exception(errorMessage);
         }
         throw Exception('XML-RPC fault occurred');
       }
@@ -3306,5 +3354,432 @@ class OdooService {
     }
 
     return child.innerText;
+  }
+
+  // Attendance Methods
+
+  // Get last attendance record
+  Future<Map<String, dynamic>?> getLastAttendance() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final lastAttendance = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+          ]
+        ],
+        {
+          'fields': ['check_in', 'check_out', 'employee_id'],
+          'order': 'check_in desc',
+          'limit': 1,
+        }
+      ]);
+
+      if (lastAttendance is List && lastAttendance.isNotEmpty) {
+        final attendance = lastAttendance[0];
+        return {
+          'action': attendance['check_out'] == false ? 'check_in' : 'check_out',
+          'check_in': attendance['check_in'],
+          'check_out': attendance['check_out'],
+          'employee_id': attendance['employee_id'],
+        };
+      }
+
+      return null;
+    } catch (e) {
+      print('Error fetching last attendance: $e');
+      return null;
+    }
+  }
+
+// Query an existing attendance record to see what auth_method and type_att values are actually used
+  Future<Map<String, String?>> getAttendanceFieldValues() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      // Get any existing attendance record
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'search_read',
+        [[]],
+        {
+          'fields': ['auth_method', 'type_att'],
+          'limit': 1,
+        }
+      ]);
+
+      Map<String, String?> fieldValues = {};
+
+      if (result is List && result.isNotEmpty) {
+        final record = result[0];
+        if (record is Map) {
+          if (record['auth_method'] != null) {
+            final authMethod = record['auth_method'].toString();
+            print('✅ Found existing auth_method in DB: $authMethod');
+            fieldValues['auth_method'] = authMethod;
+          }
+          if (record['type_att'] != null) {
+            final typeAtt = record['type_att'].toString();
+            print('✅ Found existing type_att in DB: $typeAtt');
+            fieldValues['type_att'] = typeAtt;
+          }
+        }
+      }
+      return fieldValues;
+    } catch (e) {
+      print('⚠️ Could not fetch sample field values: $e');
+      return {};
+    }
+  }
+
+// Get valid auth_method values from the hr.attendance model
+  Future<List<String>?> getAuthMethodValues() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    // First, try to get auth_method from an existing record
+    final fieldValues = await getAttendanceFieldValues();
+    final sampleAuthMethod = fieldValues['auth_method'];
+
+    // Valid auth_method values from Odoo hr.attendance model:
+    // Based on the selection field in Odoo, valid values are:
+    // visage (Face), pin (PIN Code), qr (QR Code), pointeur (Pointer), nfc (NFC)
+    final validValues = ['pointeur', 'visage', 'pin', 'qr', 'nfc'];
+
+    print('ℹ️ Valid auth_method values: $validValues');
+    if (sampleAuthMethod != null) {
+      print('💡 Using auth_method from sample record: $sampleAuthMethod');
+      return [
+        sampleAuthMethod,
+        ...validValues.where((v) => v != sampleAuthMethod)
+      ];
+    }
+
+    return validValues;
+  }
+
+// Get punching entities (entite_id)
+  Future<List<Map<String, dynamic>>> getPunchingEntities() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      print('🔍 Fetching entities from model: entite.pointage');
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'entite.pointage',
+        'search_read',
+        [],
+        {
+          'fields': ['id', 'name'],
+          'order': 'name asc',
+        }
+      ]);
+
+      print('Raw result type: ${result.runtimeType}');
+      print('Raw result: $result');
+
+      if (result == null) {
+        throw Exception('No response from server');
+      }
+
+      // Convert the result to proper List<Map<String, dynamic>>
+      List<Map<String, dynamic>> entities = [];
+
+      if (result is List) {
+        for (var item in result) {
+          if (item is Map) {
+            // Convert Map<dynamic, dynamic> to Map<String, dynamic>
+            entities.add(Map<String, dynamic>.from(item));
+          }
+        }
+      }
+
+      if (entities.isEmpty) {
+        print('⚠️ No entities found in database');
+        throw Exception(
+            'No attendance entities found. Please contact your administrator to create entities.');
+      }
+
+      print('✅ Found ${entities.length} entities');
+      print('📋 Entities: $entities');
+      return entities;
+    } catch (e) {
+      print('❌ Error fetching entities: $e');
+      rethrow;
+    }
+  }
+
+// Punch in (Check in)
+  Future<bool> punchIn({
+    required double latitude,
+    required double longitude,
+    required DateTime checkIn,
+    int? entiteId,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      print('=== PUNCH IN ATTEMPT ===');
+      print('Employee ID: $employeeId');
+      print('Latitude: $latitude');
+      print('Longitude: $longitude');
+
+      // Check for open attendance first
+      try {
+        final openAttendance = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.attendance',
+          'search_read',
+          [
+            [
+              ['employee_id', '=', employeeId],
+              ['check_out', '=', false],
+            ]
+          ],
+          {
+            'fields': ['id', 'check_in'],
+            'limit': 1,
+          }
+        ]);
+
+        if (openAttendance is List && openAttendance.isNotEmpty) {
+          print('ERROR: Open attendance found: ${openAttendance[0]}');
+          throw Exception('You must check out before checking in again.');
+        }
+        print('✓ No open attendance found');
+      } catch (e) {
+        if (e.toString().contains('check out before')) rethrow;
+        print('Warning: Could not verify open attendance: $e');
+      }
+
+      // Get entity ID
+      int? finalEntiteId = entiteId;
+      if (finalEntiteId == null) {
+        final entities = await getPunchingEntities();
+        if (entities.isEmpty) {
+          throw Exception('No punching entity available.');
+        }
+        finalEntiteId = entities[0]['id'];
+        print('Using entity ID: $finalEntiteId');
+      }
+
+      // Get valid auth_method values (or use defaults)
+      final authMethodValues = await getAuthMethodValues();
+      print('🔍 Available auth_method values: $authMethodValues');
+
+      // Try to determine the correct auth_method value
+      String? authMethodValue;
+      if (authMethodValues != null && authMethodValues.isNotEmpty) {
+        // Try pointeur first (manual method, commonly used)
+        if (authMethodValues.contains('pointeur')) {
+          authMethodValue = 'pointeur';
+        } else if (authMethodValues.contains('qr')) {
+          authMethodValue = 'qr';
+        } else if (authMethodValues.contains('pin')) {
+          authMethodValue = 'pin';
+        } else if (authMethodValues.contains('visage')) {
+          authMethodValue = 'visage';
+        } else if (authMethodValues.contains('nfc')) {
+          authMethodValue = 'nfc';
+        } else {
+          // Use the first available value
+          authMethodValue = authMethodValues.first;
+        }
+      } else {
+        // Fallback to pointeur (most common based on existing records)
+        authMethodValue = 'pointeur';
+      }
+      print('Using auth_method: $authMethodValue');
+
+      // Format check-in time in UTC
+      final checkInFormatted = '${checkIn.year.toString().padLeft(4, '0')}-'
+          '${checkIn.month.toString().padLeft(2, '0')}-'
+          '${checkIn.day.toString().padLeft(2, '0')} '
+          '${checkIn.hour.toString().padLeft(2, '0')}:'
+          '${checkIn.minute.toString().padLeft(2, '0')}:'
+          '${checkIn.second.toString().padLeft(2, '0')}';
+
+      // Create attendance data starting with required fields
+      final Map<String, dynamic> attendanceData = {
+        'employee_id': employeeId,
+        'check_in': checkInFormatted,
+        'entite_id': finalEntiteId,
+        'auth_method': authMethodValue, // Always include auth_method
+        'type_att':
+            'entree', // Type de pointage (punching type): entree = entry, sortie = exit
+      };
+
+      // Try adding optional fields (may not exist in all Odoo setups)
+      // These are common custom fields that might exist
+      attendanceData['in_latitude'] = latitude;
+      attendanceData['in_longitude'] = longitude;
+
+      print('Creating attendance with data: $attendanceData');
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'create',
+        [attendanceData],
+      ]);
+
+      print('✓ Punch in created with ID: $result');
+      return result != null && result > 0;
+    } catch (e) {
+      print('✗ Error punching in: $e');
+      rethrow;
+    }
+  }
+
+  // Punch out (Check out)
+  Future<bool> punchOut({
+    required double latitude,
+    required double longitude,
+    required DateTime checkOut,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      // Get the last check-in that doesn't have a check-out
+      final lastCheckIn = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+            ['check_out', '=', false],
+          ]
+        ],
+        {
+          'fields': ['id', 'check_in'],
+          'order': 'check_in desc',
+          'limit': 1,
+        }
+      ]);
+
+      if (lastCheckIn is List && lastCheckIn.isNotEmpty) {
+        final attendanceId = lastCheckIn[0]['id'];
+
+        // Format check-out time
+        final checkOutFormatted = '${checkOut.year.toString().padLeft(4, '0')}-'
+            '${checkOut.month.toString().padLeft(2, '0')}-'
+            '${checkOut.day.toString().padLeft(2, '0')} '
+            '${checkOut.hour.toString().padLeft(2, '0')}:'
+            '${checkOut.minute.toString().padLeft(2, '0')}:'
+            '${checkOut.second.toString().padLeft(2, '0')}';
+
+        final result = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.attendance',
+          'write',
+          [
+            [attendanceId],
+            {
+              'check_out': checkOutFormatted,
+              'out_latitude': latitude,
+              'out_longitude': longitude,
+            }
+          ],
+        ]);
+
+        print('✅ Punch out updated: $result');
+        return result == true;
+      } else {
+        print('❌ No active check-in found');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error punching out: $e');
+      rethrow;
+    }
+  }
+
+  // Get attendance history for current employee
+  Future<List<Map<String, dynamic>>> getAttendanceHistory({
+    int limit = 50,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+
+      final attendanceRecords = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'check_in',
+            'check_out',
+            'worked_hours',
+            'in_latitude',
+            'in_longitude',
+            'out_latitude',
+            'out_longitude',
+            'entite_id',
+            'punching_type',
+            'auth_method',
+          ],
+          'order': 'check_in desc',
+          'limit': limit,
+        }
+      ]);
+
+      if (attendanceRecords is List) {
+        return List<Map<String, dynamic>>.from(attendanceRecords);
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching attendance history: $e');
+      return [];
+    }
   }
 }

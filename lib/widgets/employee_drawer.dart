@@ -208,8 +208,7 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               title: localizations.translate('time_tracking'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(context,
-                                    localizations.translate('time_tracking'));
+                                Navigator.pushNamed(context, '/attendance');
                               },
                             ),
                             _buildSubMenuItem(

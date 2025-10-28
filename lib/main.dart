@@ -25,6 +25,8 @@ import 'screens/leave_management_screen.dart';
 import 'screens/employee_notifications_screen.dart';
 import 'screens/hr_notifications_screen.dart';
 import 'screens/employee_tasks_screen.dart';
+import 'screens/attendance_screen.dart';
+import 'screens/attendance_history_screen.dart';
 import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
@@ -93,9 +95,14 @@ class HRManagementApp extends StatelessWidget {
               '/personal-documents': (context) =>
                   const PersonalDocumentsScreen(),
               '/profile-settings': (context) => const ProfileSettingsScreen(),
-              '/hr-employees': (context) => const HREmployeeManagementScreen(),
+              '/hr-employees': (context) => const HREmployeeManagementScreen(
+                    showAllEmployees: true, // HR sees all employees
+                  ),
               '/manager-employees': (context) =>
-                  const HREmployeeManagementScreen(),
+                  const HREmployeeManagementScreen(
+                    showAllEmployees:
+                        true, // Manager sees all employees under their management
+                  ),
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),
@@ -108,6 +115,9 @@ class HRManagementApp extends StatelessWidget {
                     ),
                   ),
               '/hr-notifications': (context) => const HRNotificationsScreen(),
+              '/attendance': (context) => const AttendanceScreen(),
+              '/attendance-history': (context) =>
+                  const AttendanceHistoryScreen(),
             },
           );
         },
