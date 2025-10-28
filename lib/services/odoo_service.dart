@@ -3800,4 +3800,62 @@ class OdooService {
       return [];
     }
   }
+
+  // Get attendance records for a specific employee
+  Future<List<Map<String, dynamic>>> getEmployeeAttendance(
+      int employeeId) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final attendanceRecords = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.attendance',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'check_in',
+            'check_out',
+            'worked_hours',
+          ],
+          'order': 'check_in desc',
+          'limit': 100,
+        }
+      ]);
+
+      print('Raw employee attendance type: ${attendanceRecords.runtimeType}');
+
+      if (attendanceRecords is List) {
+        // Filter out non-map items and convert to proper format
+        final List<Map<String, dynamic>> validRecords = [];
+        for (var item in attendanceRecords) {
+          print('Item type: ${item.runtimeType}, item: $item');
+          if (item is Map) {
+            try {
+              validRecords.add(Map<String, dynamic>.from(item));
+            } catch (e) {
+              print('Error converting item to Map: $e');
+            }
+          } else {
+            print('Skipping non-map item: $item');
+          }
+        }
+        print('Valid records count: ${validRecords.length}');
+        return validRecords;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching employee attendance: $e');
+      return [];
+    }
+  }
 }

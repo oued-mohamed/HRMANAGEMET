@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
-import '../services/notification_service.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 
@@ -23,8 +22,10 @@ class HREmployeeManagementScreen extends StatefulWidget {
 class _HREmployeeManagementScreenState
     extends State<HREmployeeManagementScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final OdooService _odooService = OdooService();
   List<Map<String, dynamic>> _employees = [];
   Set<int> _directReportIds = {}; // Track IDs of direct reports
+  Map<int, double> _weeklyHours = {}; // Store weekly hours for each employee
   bool _isLoading = true;
   String _searchQuery = '';
 
@@ -32,6 +33,58 @@ class _HREmployeeManagementScreenState
   void initState() {
     super.initState();
     _loadEmployees();
+  }
+
+  // Get current week (Monday to Saturday)
+  DateTime get _weekStart {
+    final now = DateTime.now();
+    final weekday = now.weekday; // 1 = Monday, 7 = Sunday
+    // Go back to Monday
+    return now.subtract(Duration(days: weekday - 1));
+  }
+
+  DateTime get _weekEnd {
+    final now = DateTime.now();
+    final weekday = now.weekday;
+    // Go forward to Saturday (add 5 days from Monday)
+    return now.add(Duration(days: 7 - weekday));
+  }
+
+  // Get weekly hours for a specific employee
+  Future<double> _getWeeklyHours(int employeeId) async {
+    try {
+      final attendanceRecords =
+          await _odooService.getEmployeeAttendance(employeeId);
+
+      double totalHours = 0.0;
+
+      for (var record in attendanceRecords) {
+        final checkIn = record['check_in'];
+        if (checkIn != null) {
+          try {
+            final checkInDate = DateTime.parse(checkIn.toString());
+            // Check if this record is within the current week (Monday to Saturday)
+            if (checkInDate
+                    .isAfter(_weekStart.subtract(const Duration(days: 1))) &&
+                checkInDate.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+              final workedHours = record['worked_hours'];
+              if (workedHours != null &&
+                  workedHours is double &&
+                  workedHours > 0) {
+                totalHours += workedHours;
+              }
+            }
+          } catch (e) {
+            // Skip invalid dates
+          }
+        }
+      }
+
+      return totalHours;
+    } catch (e) {
+      print('Error getting weekly hours for employee $employeeId: $e');
+      return 0.0;
+    }
   }
 
   Future<void> _loadEmployees() async {
@@ -45,28 +98,34 @@ class _HREmployeeManagementScreenState
       print('📊 Direct reports found: ${directReports.length}');
       print('🔑 Direct report IDs: $_directReportIds');
 
+      List<Map<String, dynamic>> employeesList;
+
       if (widget.showAllEmployees) {
         // Manager mode: Get all employees under management (direct + indirect)
         final allEmployees =
             await OdooService().getAllEmployeesUnderManagement();
         print('📊 All employees under management: ${allEmployees.length}');
-
-        if (mounted) {
-          setState(() {
-            _employees = allEmployees;
-            _isLoading = false;
-          });
-        }
+        employeesList = allEmployees;
       } else {
         // HR mode: Only show direct reports
         print('📊 Showing only direct reports: ${directReports.length}');
+        employeesList = directReports;
+      }
 
-        if (mounted) {
-          setState(() {
-            _employees = directReports;
-            _isLoading = false;
-          });
-        }
+      // Load weekly hours for each employee
+      final Map<int, double> weeklyHours = {};
+      for (var emp in employeesList) {
+        final empId = emp['id'] as int;
+        final hours = await _getWeeklyHours(empId);
+        weeklyHours[empId] = hours;
+      }
+
+      if (mounted) {
+        setState(() {
+          _employees = employeesList;
+          _weeklyHours = weeklyHours;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       print('Error loading employees: $e');
@@ -316,9 +375,6 @@ class _HREmployeeManagementScreenState
         ? employee['department_id'][1].toString()
         : localizations.translate('no_department');
 
-    // Check if this employee is a direct report (can receive tasks)
-    final isDirectReport = _directReportIds.contains(employee['id']);
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -407,32 +463,58 @@ class _HREmployeeManagementScreenState
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Bottom section with button
-                SizedBox(
+                // Bottom section with weekly hours
+                Container(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: isDirectReport
-                        ? () => _showAssignTaskDialog(employee, localizations)
-                        : null, // Disable for indirect reports
-                    icon: Icon(Icons.assignment,
-                        size: 14,
-                        color: isDirectReport ? Colors.white : Colors.grey),
-                    label: Text(
-                      localizations.translate('assign_task'),
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: isDirectReport ? Colors.white : Colors.grey),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF000B58).withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF000B58).withOpacity(0.1),
+                      width: 1,
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDirectReport
-                          ? const Color(0xFF35BF8C)
-                          : Colors.grey[300],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: Color(0xFF000B58),
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                'Cette semaine',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      Flexible(
+                        child: Text(
+                          _formatHours(
+                              _weeklyHours[employee['id'] as int] ?? 0.0),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF000B58),
+                          ),
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -441,6 +523,19 @@ class _HREmployeeManagementScreenState
         ),
       ),
     );
+  }
+
+  String _formatHours(double hours) {
+    if (hours == 0) return '0h';
+    
+    final wholeHours = hours.toInt();
+    final minutes = ((hours - wholeHours) * 60).round();
+    
+    if (minutes == 0) {
+      return '${wholeHours}h';
+    } else {
+      return '${wholeHours}h ${minutes}m';
+    }
   }
 
   Widget _buildProfileImage(Map<String, dynamic> employee) {
@@ -531,403 +626,6 @@ class _HREmployeeManagementScreenState
       ),
       child: const Icon(Icons.person, color: Colors.white, size: 28),
     );
-  }
-
-  void _showAssignTaskDialog(
-      Map<String, dynamic> employee, AppLocalizations localizations) {
-    final taskTitleController = TextEditingController();
-    final taskDescriptionController = TextEditingController();
-    String selectedPriority = 'medium_priority';
-    DateTime selectedDueDate = DateTime.now().add(const Duration(days: 7));
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.assignment, color: Color(0xFF35BF8C)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      localizations.translate('assign_task'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Employee Info
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF000B58).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.person, color: Color(0xFF000B58)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  employee['name']?.toString() ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF000B58),
-                                  ),
-                                ),
-                                Text(
-                                  employee['job_id'] is List
-                                      ? employee['job_id'][1].toString()
-                                      : 'No Position',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Task Title
-                    Text(
-                      localizations.translate('task_title'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: taskTitleController,
-                      decoration: InputDecoration(
-                        hintText: localizations.translate('task_title'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF35BF8C)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Task Description
-                    Text(
-                      localizations.translate('task_description'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: taskDescriptionController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: localizations.translate('task_description'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF35BF8C)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Priority Selection
-                    Text(
-                      localizations.translate('task_priority'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPriority,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF35BF8C)),
-                        ),
-                      ),
-                      items: [
-                        DropdownMenuItem(
-                          value: 'high_priority',
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(localizations.translate('high_priority')),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'medium_priority',
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: const BoxDecoration(
-                                  color: Colors.orange,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(localizations.translate('medium_priority')),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'low_priority',
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(localizations.translate('low_priority')),
-                            ],
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedPriority = value!;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Due Date
-                    Text(
-                      localizations.translate('task_due_date'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDueDate,
-                          firstDate: DateTime.now(),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            selectedDueDate = date;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today,
-                                color: Color(0xFF35BF8C)),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${selectedDueDate.day}/${selectedDueDate.month}/${selectedDueDate.year}',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    localizations.translate('cancel'),
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (taskTitleController.text.isNotEmpty) {
-                      _assignTask(
-                        employee,
-                        taskTitleController.text,
-                        taskDescriptionController.text,
-                        selectedPriority,
-                        selectedDueDate,
-                        localizations,
-                      );
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF35BF8C),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(localizations.translate('assign')),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _assignTask(
-    Map<String, dynamic> employee,
-    String title,
-    String description,
-    String priority,
-    DateTime dueDate,
-    AppLocalizations localizations,
-  ) async {
-    try {
-      // Show loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              SizedBox(width: 16),
-              Text('Assignation de la tâche...'),
-            ],
-          ),
-          backgroundColor: Color(0xFF000B58),
-        ),
-      );
-
-      // Create task in Odoo and send notification
-      final success = await OdooService().createTaskAndNotify(
-        employeeId: employee['id'],
-        title: title,
-        description: description,
-        priority: priority,
-        dueDate: dueDate,
-        assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
-      );
-
-      // Add local notification as well for immediate feedback
-      NotificationService().addNotification(
-        title: title,
-        description: description,
-        priority: priority,
-        dueDate: dueDate,
-        assignedByName: 'Mitchell Admin', // TODO: Get actual manager name
-        assignedToName: employee['name']?.toString() ?? 'Unknown',
-        type: 'task',
-      );
-
-      ScaffoldMessenger.of(context).clearSnackBars();
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Text(
-                    '${localizations.translate('task_assigned_successfully')} - ${employee['name']}'),
-              ],
-            ),
-            backgroundColor: const Color(0xFF35BF8C),
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'Voir notifications',
-              textColor: Colors.white,
-              onPressed: () {
-                Navigator.pushNamed(context, '/employee-notifications');
-              },
-            ),
-          ),
-        );
-      } else {
-        // Show warning if task creation failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.warning, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Erreur lors de la création de la tâche dans Odoo'),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-
-      print('Task assigned to ${employee['name']}:');
-      print('Title: $title');
-      print('Description: $description');
-      print('Priority: $priority');
-      print('Due Date: $dueDate');
-      print('Success: $success');
-    } catch (e) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de l\'assignation: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   void _showEmployeeDetails(
