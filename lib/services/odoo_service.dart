@@ -3734,7 +3734,7 @@ class OdooService {
 
   // Get attendance history for current employee
   Future<List<Map<String, dynamic>>> getAttendanceHistory({
-    int limit = 50,
+    int limit = 1000, // Increased limit to show all attendance history
   }) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
@@ -3765,16 +3765,34 @@ class OdooService {
             'out_latitude',
             'out_longitude',
             'entite_id',
-            'punching_type',
             'auth_method',
+            'type_att', // Punching type (entree/sortie)
           ],
           'order': 'check_in desc',
           'limit': limit,
         }
       ]);
 
+      print('Raw attendance records type: ${attendanceRecords.runtimeType}');
+      print('Raw attendance records: $attendanceRecords');
+
       if (attendanceRecords is List) {
-        return List<Map<String, dynamic>>.from(attendanceRecords);
+        // Filter out non-map items and convert to proper format
+        final List<Map<String, dynamic>> validRecords = [];
+        for (var item in attendanceRecords) {
+          print('Item type: ${item.runtimeType}, item: $item');
+          if (item is Map) {
+            try {
+              validRecords.add(Map<String, dynamic>.from(item));
+            } catch (e) {
+              print('Error converting item to Map: $e');
+            }
+          } else {
+            print('Skipping non-map item: $item');
+          }
+        }
+        print('Valid records count: ${validRecords.length}');
+        return validRecords;
       }
       return [];
     } catch (e) {

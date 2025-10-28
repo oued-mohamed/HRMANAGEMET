@@ -251,6 +251,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                               color: Colors.white,
                               textColor: Colors.black87,
                               chart: _buildLineChart(),
+                              onTap: () {
+                                Navigator.pushNamed(
+                                    context, '/work-time-statistics');
+                              },
                             ),
                           ),
                         ],

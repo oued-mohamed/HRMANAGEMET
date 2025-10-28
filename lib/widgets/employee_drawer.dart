@@ -205,6 +205,16 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                             _buildSubMenuItem(
                               context: context,
                               localizations: localizations,
+                              title: localizations.translate('working_time'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(
+                                    context, '/work-time-statistics');
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
                               title: localizations.translate('time_tracking'),
                               onTap: () {
                                 Navigator.pop(context);
@@ -218,10 +228,8 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                                   .translate('time_tracking_history'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(
-                                    context,
-                                    localizations
-                                        .translate('time_tracking_history'));
+                                Navigator.pushNamed(
+                                    context, '/attendance-history');
                               },
                             ),
                           ],

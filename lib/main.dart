@@ -27,6 +27,7 @@ import 'screens/hr_notifications_screen.dart';
 import 'screens/employee_tasks_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/attendance_history_screen.dart';
+import 'screens/work_time_statistics_screen.dart';
 import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
@@ -118,6 +119,8 @@ class HRManagementApp extends StatelessWidget {
               '/attendance': (context) => const AttendanceScreen(),
               '/attendance-history': (context) =>
                   const AttendanceHistoryScreen(),
+              '/work-time-statistics': (context) =>
+                  const WorkTimeStatisticsScreen(),
             },
           );
         },
