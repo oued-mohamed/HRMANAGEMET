@@ -36,16 +36,15 @@ class LeaveProvider extends ChangeNotifier {
 
   // Load leave requests
   Future<void> loadLeaveRequests() async {
-    _setLoading(true);
+    // Don't set loading to true to avoid blocking UI when loading alongside balance
     _clearError();
 
     try {
       _leaveRequests = await _odooService.getLeaveRequests();
       notifyListeners();
     } catch (e) {
-      _setError('Failed to load leave requests: ${e.toString()}');
-    } finally {
-      _setLoading(false);
+      print('Error loading leave requests: $e');
+      // Don't set error here to avoid blocking UI
     }
   }
 

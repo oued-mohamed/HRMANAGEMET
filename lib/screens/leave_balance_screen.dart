@@ -36,7 +36,10 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
     }
 
     final leaveProvider = Provider.of<LeaveProvider>(context, listen: false);
-    await leaveProvider.loadLeaveBalance();
+    await Future.wait([
+      leaveProvider.loadLeaveBalance(),
+      leaveProvider.loadLeaveRequests(), // Also load individual requests
+    ]);
   }
 
   @override
@@ -52,9 +55,6 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
     final cardPadding = isSmallScreen ? 16.0 : 20.0;
     final headerIconSize = isSmallScreen ? 40.0 : 48.0;
     final headerTitleSize = isSmallScreen ? 20.0 : 24.0;
-    final cardIconSize = isSmallScreen ? 28.0 : 32.0;
-    final cardTitleSize = isSmallScreen ? 16.0 : 18.0;
-    final daysNumberSize = isSmallScreen ? 24.0 : 28.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -216,132 +216,52 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                                       color: Colors.grey[600],
                                     ),
                                   ),
+                                  SizedBox(height: isSmallScreen ? 6 : 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue[50],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.blue[200]!, width: 1),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.info_outline,
+                                            size: 14, color: Colors.blue[700]),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Solde basé sur les congés approuvés uniquement',
+                                            style: TextStyle(
+                                              fontSize: isSmallScreen ? 10 : 12,
+                                              color: Colors.blue[900],
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           SizedBox(height: isSmallScreen ? 16 : 24),
 
-                          // Balance Cards
-                          ...balance.entries.map((entry) {
-                            final leaveType = entry.key;
-                            final days = entry.value;
+                          // Balance Grid - 4 items per row
+                          _buildBalanceGrid(balance, isSmallScreen, context),
 
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                  bottom: isSmallScreen ? 12 : 16),
-                              child: Card(
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    _showLeaveTypeDetails(context, leaveType,
-                                        days, isSmallScreen);
-                                  },
-                                  child: Padding(
-                                    padding: EdgeInsets.all(cardPadding),
-                                    child: Row(
-                                      children: [
-                                        // Icon
-                                        Container(
-                                          padding: EdgeInsets.all(
-                                              isSmallScreen ? 10 : 12),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF000B58)
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Icon(
-                                            _getIconForLeaveType(leaveType),
-                                            color: const Color(0xFF000B58),
-                                            size: cardIconSize,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                            width: isSmallScreen ? 12 : 16),
+                          SizedBox(height: isSmallScreen ? 16 : 24),
 
-                                        // Leave Type Name
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                leaveType,
-                                                style: TextStyle(
-                                                  fontSize: cardTitleSize,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              SizedBox(
-                                                  height:
-                                                      isSmallScreen ? 2 : 4),
-                                              Text(
-                                                'Jours disponibles',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      isSmallScreen ? 12 : 14,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        SizedBox(width: isSmallScreen ? 8 : 12),
+                          // Leave Requests Section
+                          _buildLeaveRequestsSection(
+                              context, leaveProvider, isSmallScreen),
 
-                                        // Days Count
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: isSmallScreen ? 12 : 16,
-                                            vertical: isSmallScreen ? 6 : 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getColorForDays(days)
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: _getColorForDays(days)
-                                                  .withOpacity(0.3),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                '$days',
-                                                style: TextStyle(
-                                                  fontSize: daysNumberSize,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _getColorForDays(days),
-                                                ),
-                                              ),
-                                              Text(
-                                                'jours',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      isSmallScreen ? 10 : 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _getColorForDays(days),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
+                          SizedBox(height: isSmallScreen ? 16 : 24),
 
                           // Info Card
                           Card(
@@ -380,6 +300,187 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceGrid(
+      Map<String, dynamic> balance, bool isSmallScreen, BuildContext context) {
+    final entries = balance.entries.toList();
+
+    // Split entries into rows of 3
+    List<List<MapEntry<String, dynamic>>> rows = [];
+    for (int i = 0; i < entries.length; i += 3) {
+      rows.add(
+          entries.sublist(i, i + 3 > entries.length ? entries.length : i + 3));
+    }
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: rows.asMap().entries.map((rowEntry) {
+            final rowIndex = rowEntry.key;
+            final row = rowEntry.value;
+            final isLastRow = rowIndex == rows.length - 1;
+
+            return Column(
+              children: [
+                Row(
+                  children: List.generate(3, (colIndex) {
+                    final hasItem = colIndex < row.length;
+                    final isLastCol = colIndex == 2;
+
+                    if (hasItem) {
+                      final entry = row[colIndex];
+                      final leaveType = entry.key;
+                      final days = entry.value;
+
+                      return Expanded(
+                        child: Container(
+                          height: isSmallScreen
+                              ? 150
+                              : 170, // Increased height to prevent overflow
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: BorderSide(
+                                color: isLastCol
+                                    ? Colors.transparent
+                                    : Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: _buildLeaveTypeCard(
+                              context, leaveType, days, isSmallScreen, false),
+                        ),
+                      );
+                    } else {
+                      // Empty cell
+                      return Expanded(
+                        child: Container(
+                          height: isSmallScreen ? 150 : 170,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: BorderSide(
+                                color: isLastCol
+                                    ? Colors.transparent
+                                    : Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }),
+                ),
+                if (!isLastRow)
+                  Container(
+                    height: 1,
+                    color: Colors.grey[300],
+                  ),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeaveTypeCard(BuildContext context, String leaveType,
+      dynamic days, bool isSmallScreen, bool showCard) {
+    return InkWell(
+      onTap: () {
+        _showLeaveTypeDetails(context, leaveType, days, isSmallScreen);
+      },
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 8 : 12,
+          vertical: 0, // No vertical padding - we'll add spacing in Column
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Top spacing
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            // Icon at top
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF000B58).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _getIconForLeaveType(leaveType),
+                color: const Color(0xFF000B58),
+                size: isSmallScreen ? 20 : 24,
+              ),
+            ),
+            // Leave Type Name - centered between icon and badge
+            Expanded(
+              child: Center(
+                child: Text(
+                  leaveType,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 10 : 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            // Days Count Badge at bottom
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmallScreen ? 6 : 8,
+                vertical: isSmallScreen ? 3 : 4,
+              ),
+              decoration: BoxDecoration(
+                color: _getColorForDays(days).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: _getColorForDays(days).withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    days.toStringAsFixed(days % 1 == 0 ? 0 : 1),
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 14 : 16,
+                      fontWeight: FontWeight.bold,
+                      color: _getColorForDays(days),
+                    ),
+                  ),
+                  SizedBox(height: 1),
+                  Text(
+                    'jours',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 8 : 9,
+                      fontWeight: FontWeight.w600,
+                      color: _getColorForDays(days),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Bottom spacing
+            SizedBox(height: isSmallScreen ? 12 : 16),
+          ],
         ),
       ),
     );
@@ -526,5 +627,346 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildLeaveRequestsSection(
+      BuildContext context, LeaveProvider leaveProvider, bool isSmallScreen) {
+    final requests = leaveProvider.leaveRequests ?? [];
+
+    if (requests.isEmpty) {
+      return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.event_note,
+                    color: const Color(0xFF000B58),
+                    size: isSmallScreen ? 24 : 28,
+                  ),
+                  SizedBox(width: isSmallScreen ? 8 : 12),
+                  Text(
+                    'Mes demandes de congés',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 18 : 20,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF000B58),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucune demande de congé',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 14 : 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Group requests by leave type
+    Map<String, List<Map<String, dynamic>>> groupedByType = {};
+    for (var request in requests) {
+      final statusId = request['holiday_status_id'];
+      String typeName = 'Inconnu';
+
+      if (statusId is List && statusId.length >= 2) {
+        typeName = statusId[1].toString();
+      } else if (statusId is String) {
+        typeName = statusId;
+      }
+
+      if (!groupedByType.containsKey(typeName)) {
+        groupedByType[typeName] = [];
+      }
+      groupedByType[typeName]!.add(request);
+    }
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.event_note,
+                  color: const Color(0xFF000B58),
+                  size: isSmallScreen ? 24 : 28,
+                ),
+                SizedBox(width: isSmallScreen ? 8 : 12),
+                Text(
+                  'Mes demandes de congés',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 18 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF000B58),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Le solde affiché ci-dessus ne compte que les congés approuvés.',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 11 : 12,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 16 : 20),
+            // Show requests grouped by type
+            ...groupedByType.entries.map((entry) {
+              final typeName = entry.key;
+              final typeRequests = entry.value;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _getIconForLeaveType(typeName),
+                          color: const Color(0xFF000B58),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          typeName,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 16 : 18,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF000B58),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...typeRequests.map((request) {
+                    return _buildLeaveRequestCard(request, isSmallScreen);
+                  }),
+                  SizedBox(height: isSmallScreen ? 16 : 20),
+                ],
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeaveRequestCard(
+      Map<String, dynamic> request, bool isSmallScreen) {
+    final state = request['state']?.toString() ?? 'unknown';
+    final statusId = request['holiday_status_id'];
+    String typeName = 'Inconnu';
+
+    if (statusId is List && statusId.length >= 2) {
+      typeName = statusId[1].toString();
+    } else if (statusId is String) {
+      typeName = statusId;
+    }
+
+    // Parse dates
+    String formatDate(String? dateStr) {
+      if (dateStr == null || dateStr.isEmpty) return 'N/A';
+      try {
+        final date = DateTime.parse(dateStr);
+        return '${date.day}/${date.month}/${date.year}';
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    final dateFrom = formatDate(request['request_date_from']?.toString());
+    final dateTo = formatDate(request['request_date_to']?.toString());
+
+    // Calculate days
+    double days = 0.0;
+    var numDays = request['number_of_days'];
+    if (numDays is num) {
+      days = numDays.toDouble();
+    } else if (numDays is String) {
+      days = double.tryParse(numDays) ?? 0.0;
+    }
+
+    // Check for half-day
+    final isHalfDay = request['request_unit_half'] == true;
+    final typeNameLower = typeName.toLowerCase();
+    final isHalfDayType =
+        typeNameLower.contains('demi') || typeNameLower.contains('half');
+
+    if ((isHalfDay || isHalfDayType) && days == 1.0) {
+      days = 0.5;
+    }
+
+    // Get status info
+    String statusText = _getStatusLabel(state);
+    Color statusColor = _getStatusColor(state);
+    IconData statusIcon = _getStatusIcon(state);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: isSmallScreen ? 8 : 12),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateFrom == dateTo ? dateFrom : '$dateFrom - $dateTo',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: isSmallScreen ? 4 : 6),
+                    Text(
+                      '${days.toStringAsFixed(days % 1 == 0 ? 0 : 1)} jour${days != 1.0 ? 's' : ''}',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 12 : 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 12,
+                  vertical: isSmallScreen ? 4 : 6,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 14, color: statusColor),
+                    SizedBox(width: isSmallScreen ? 4 : 6),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 11 : 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (request['name'] != null && request['name'].toString().isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: isSmallScreen ? 8 : 12),
+              child: Text(
+                request['name'].toString(),
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 12 : 14,
+                  color: Colors.grey[700],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getStatusLabel(String state) {
+    switch (state.toLowerCase()) {
+      case 'draft':
+        return 'Brouillon';
+      case 'confirm':
+        return 'En attente';
+      case 'validate1':
+        return 'Approuvé (N1)';
+      case 'validate':
+        return 'Approuvé';
+      case 'refuse':
+        return 'Refusé';
+      default:
+        return state;
+    }
+  }
+
+  Color _getStatusColor(String state) {
+    switch (state.toLowerCase()) {
+      case 'draft':
+        return Colors.grey;
+      case 'confirm':
+        return Colors.orange;
+      case 'validate1':
+        return Colors.blue;
+      case 'validate':
+        return const Color(0xFF35BF8C); // Green
+      case 'refuse':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String state) {
+    switch (state.toLowerCase()) {
+      case 'draft':
+        return Icons.edit_outlined;
+      case 'confirm':
+        return Icons.pending_outlined;
+      case 'validate1':
+        return Icons.check_circle_outline;
+      case 'validate':
+        return Icons.check_circle;
+      case 'refuse':
+        return Icons.cancel_outlined;
+      default:
+        return Icons.help_outline;
+    }
   }
 }

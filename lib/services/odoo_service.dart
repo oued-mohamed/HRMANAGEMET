@@ -1251,18 +1251,157 @@ class OdooService {
     }
   }
 
-  // Get leave balance based on employee's annual entitlement
+  // Get leave balance from hr.leave.employee.type.report model
   Future<Map<String, dynamic>> getLeaveBalance() async {
-    print('Loading leave balance...');
+    print('📊 Loading leave balance from hr.leave.employee.type.report...');
     final employeeId = await getCurrentEmployeeId();
-    print('Employee ID: $employeeId');
+    print('📊 Employee ID: $employeeId');
 
     try {
-      // Skip fetching employee data since annual_leave_days field doesn't exist
-      print('Using default annual leave entitlements...');
+      // Fetch balance data from hr.leave.employee.type.report
+      print('📊 Fetching from hr.leave.employee.type.report...');
+      final reportData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.leave.employee.type.report',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId]
+          ]
+        ],
+        {
+          'fields': [
+            'leave_type',
+            'number_of_days',
+            'number_of_hours',
+            'state',
+            'holiday_status'
+          ],
+          'order': 'date_from DESC, employee_id',
+          'limit': 1000,
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
 
-      // Get used leaves
-      print('Fetching used leaves...');
+      print('📊 Report response type: ${reportData.runtimeType}');
+      print('📊 Report count: ${reportData is List ? reportData.length : 0}');
+
+      Map<String, double> balance = {};
+
+      // Process report data
+      if (reportData is List) {
+        for (var record in reportData) {
+          if (record is Map && record.containsKey('leave_type')) {
+            var leaveType = record['leave_type'];
+            String typeName = 'Inconnu';
+
+            // Extract leave type name
+            if (leaveType is List && leaveType.length >= 2) {
+              typeName = leaveType[1].toString();
+            } else if (leaveType is String) {
+              typeName = leaveType;
+            } else if (leaveType is Map && leaveType.containsKey('name')) {
+              typeName = leaveType['name'].toString();
+            }
+
+            // Get number_of_days
+            double days = 0.0;
+            if (record.containsKey('number_of_days')) {
+              var numDays = record['number_of_days'];
+              if (numDays is num) {
+                days = numDays.toDouble();
+              } else if (numDays is String) {
+                days = double.tryParse(numDays) ?? 0.0;
+              }
+            }
+
+            // The report should already contain the balance (could be positive or negative)
+            // If multiple records exist for the same type, sum them
+            balance[typeName] = (balance[typeName] ?? 0.0) + days;
+
+            print(
+                '📊 Report record: $typeName = $days days. Current balance: ${balance[typeName]}');
+          }
+        }
+      }
+
+      // If no data from report, try to get all leave types and initialize to 0
+      if (balance.isEmpty) {
+        print('📊 ⚠️ No data from report, fetching leave types...');
+        try {
+          final leaveTypes = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'hr.leave.type',
+            'search_read',
+            [[]],
+            {
+              'fields': ['id', 'name'],
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+
+          if (leaveTypes is List) {
+            for (var type in leaveTypes) {
+              if (type is Map && type.containsKey('name')) {
+                String typeName = type['name'].toString();
+                balance[typeName] = 0.0;
+                print('📊 Initialized $typeName = 0.0 (no report data)');
+              }
+            }
+          }
+        } catch (e) {
+          print('📊 ⚠️ Could not fetch leave types: $e');
+        }
+      }
+
+      print('📊 Final balance from report: $balance');
+      print('📊 Total leave types in balance: ${balance.length}');
+      return balance;
+    } catch (e) {
+      print('📊 ❌ Error in getLeaveBalance: $e');
+
+      // Fallback to old method if report doesn't exist
+      print('📊 ⚠️ Falling back to manual calculation...');
+      return await _getLeaveBalanceFallback();
+    }
+  }
+
+  // Fallback method using old calculation logic
+  Future<Map<String, dynamic>> _getLeaveBalanceFallback() async {
+    print('📊 Using fallback method...');
+    final employeeId = await getCurrentEmployeeId();
+
+    try {
+      // Get all leave types
+      final leaveTypes = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.leave.type',
+        'search_read',
+        [[]],
+        {
+          'fields': ['id', 'name'],
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      Map<String, double> balance = {};
+
+      if (leaveTypes is List) {
+        for (var type in leaveTypes) {
+          if (type is Map && type.containsKey('name')) {
+            String typeName = type['name'].toString();
+            balance[typeName] = 0.0;
+          }
+        }
+      }
+
+      // Get approved leaves only
       final leaves = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -1272,41 +1411,20 @@ class OdooService {
         [
           [
             ['employee_id', '=', employeeId],
-            [
-              'state',
-              'in',
-              ['confirm', 'validate1', 'validate']
-            ]
+            ['state', '=', 'validate']
           ]
         ],
         {
-          'fields': ['holiday_status_id', 'number_of_days'],
+          'fields': [
+            'holiday_status_id',
+            'number_of_days',
+            'request_unit_half'
+          ],
           'limit': 1000,
           'context': {'lang': 'fr_FR'}
         }
       ]);
 
-      print('Leaves response type: ${leaves.runtimeType}');
-      print('Leaves count: ${leaves is List ? leaves.length : 0}');
-      if (leaves is List && leaves.isNotEmpty) {
-        print('First leave: ${leaves.first}');
-      }
-
-      // Calculate balance starting from annual entitlement
-      Map<String, double> balance = {};
-
-      // Set default annual entitlements
-      double annualPaidLeave = 20.0; // Default annual paid leave
-      double annualSickLeave = 5.0; // Default annual sick leave
-
-      // Initialize balance with annual entitlements
-      balance['Congés payés'] = annualPaidLeave;
-      balance['Congé maladie'] = annualSickLeave;
-
-      print(
-          'Initial annual entitlement: Paid=$annualPaidLeave, Sick=$annualSickLeave');
-
-      // Subtract used leaves
       if (leaves is List) {
         for (var leave in leaves) {
           if (leave is Map &&
@@ -1320,7 +1438,6 @@ class OdooService {
             } else if (statusId is String) {
               typeName = statusId;
             } else {
-              print('Warning: Unknown holiday_status_id format: $statusId');
               continue;
             }
 
@@ -1332,45 +1449,176 @@ class OdooService {
               days = double.tryParse(numDays) ?? 0.0;
             }
 
+            final isHalfDay = leave['request_unit_half'] == true;
+            final typeNameLower = typeName.toLowerCase();
+            final isHalfDayType = typeNameLower.contains('demi') ||
+                typeNameLower.contains('half');
+
+            if ((isHalfDay || isHalfDayType) && days == 1.0) {
+              days = 0.5;
+            }
+
+            if (!balance.containsKey(typeName)) {
+              balance[typeName] = 0.0;
+            }
+
             balance[typeName] = (balance[typeName] ?? 0) - days;
-            print('Subtracted leave: $typeName = $days days');
           }
         }
       }
 
-      print('Final balance: $balance');
       return balance;
     } catch (e) {
-      print('Error in getLeaveBalance: $e');
-      rethrow;
+      print('📊 ❌ Error in fallback: $e');
+      return {};
     }
   }
 
-  // Get leave requests
+  // Get leave requests with all details
   Future<List<Map<String, dynamic>>> getLeaveRequests() async {
+    print('📋 === FETCHING LEAVE REQUESTS ===');
     final employeeId = await getCurrentEmployeeId();
+    print('📋 Employee ID: $employeeId');
+    print('📋 User ID: $_userId');
 
-    final requests = await _callRPC('object', 'execute', [
-      database,
-      _userId,
-      _password,
-      'hr.leave',
-      'search_read',
-      [
-        ['employee_id', '=', employeeId]
-      ],
-      [
-        'date_from',
-        'date_to',
-        'holiday_status_id',
-        'state',
-        'request_date_from',
-        'name',
-        'employee_id'
-      ]
-    ]);
+    try {
+      print('📋 Making RPC call to hr.leave.search_read...');
+      print('📋 Filter: employee_id = $employeeId');
 
-    return requests;
+      // First, try to search without any filters to see if model exists
+      print('📋 Testing if hr.leave model exists...');
+      try {
+        final testSearch = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.leave',
+          'search',
+          [[]], // Empty domain to search all
+          {'limit': 1}
+        ]);
+        print(
+            '📋 Test search result: $testSearch (count: ${testSearch is List ? testSearch.length : 'not a list'})');
+      } catch (e) {
+        print('📋 ⚠️ Test search failed: $e');
+      }
+
+      final requests = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.leave',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId]
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'date_from',
+            'date_to',
+            'holiday_status_id',
+            'state',
+            'request_date_from',
+            'request_date_to',
+            'name',
+            'employee_id',
+            'number_of_days',
+            'request_unit_half'
+          ],
+          'order': 'request_date_from desc',
+          'limit': 1000,
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      // Alternative: try with employee_id as a list/tuple
+      if (requests is List && requests.isEmpty) {
+        print(
+            '📋 No results with direct employee_id match, trying alternative format...');
+        try {
+          final altRequests = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'hr.leave',
+            'search_read',
+            [
+              [
+                [
+                  'employee_id',
+                  '=',
+                  [employeeId, '']
+                ]
+              ]
+            ],
+            {
+              'fields': [
+                'id',
+                'date_from',
+                'date_to',
+                'holiday_status_id',
+                'state',
+                'request_date_from',
+                'request_date_to',
+                'name',
+                'employee_id',
+                'number_of_days',
+                'request_unit_half'
+              ],
+              'order': 'request_date_from desc',
+              'limit': 1000,
+              'context': {'lang': 'fr_FR'}
+            }
+          ]);
+          print(
+              '📋 Alternative format result: ${altRequests is List ? altRequests.length : 'not a list'} items');
+          if (altRequests is List && altRequests.isNotEmpty) {
+            print('📋 Using alternative format results');
+            final List<Map<String, dynamic>> validRequests = [];
+            for (var i = 0; i < altRequests.length; i++) {
+              var item = altRequests[i];
+              if (item is Map) {
+                validRequests.add(Map<String, dynamic>.from(item));
+              }
+            }
+            return validRequests;
+          }
+        } catch (e) {
+          print('📋 Alternative format also failed: $e');
+        }
+      }
+
+      print('📋 Raw response type: ${requests.runtimeType}');
+      print('📋 Raw response: $requests');
+
+      if (requests is List) {
+        print('📋 Response is a List with ${requests.length} items');
+        final List<Map<String, dynamic>> validRequests = [];
+        for (var i = 0; i < requests.length; i++) {
+          var item = requests[i];
+          print('📋 Item $i type: ${item.runtimeType}');
+          if (item is Map) {
+            print('📋 Item $i is a Map: ${item.keys.toList()}');
+            validRequests.add(Map<String, dynamic>.from(item));
+          } else {
+            print('📋 ⚠️ Item $i is not a Map, skipping: $item');
+          }
+        }
+        print('📋 Returning ${validRequests.length} valid requests');
+        return validRequests;
+      } else {
+        print('📋 ⚠️ Response is not a List: ${requests.runtimeType}');
+      }
+      print('📋 Returning empty list');
+      return [];
+    } catch (e, stackTrace) {
+      print('📋 ❌ Error fetching leave requests: $e');
+      print('📋 Stack trace: $stackTrace');
+      return [];
+    }
   }
 
   // Get ALL employees' leave requests (not just current user)
@@ -1636,6 +1884,7 @@ class OdooService {
     required DateTime dateFrom,
     required DateTime dateTo,
     String? reason,
+    bool? isHalfDay, // Optional: specify if it's a half-day leave
   }) async {
     final employeeId = await getCurrentEmployeeId();
 
@@ -1661,34 +1910,81 @@ class OdooService {
     final formattedDateFrom = formatOdooDateTime(normalizedDateFrom);
     final formattedDateTo = formatOdooDateTime(normalizedDateTo);
 
+    // Check if the leave type name contains "demi" to auto-detect half-day
+    String? leaveTypeName;
+    bool autoDetectHalfDay = false;
+
+    try {
+      // Get leave type name to check if it's a half-day type
+      final leaveTypeInfo = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.leave.type',
+        'read',
+        [
+          [leaveTypeId]
+        ],
+        {
+          'fields': ['name']
+        }
+      ]);
+
+      if (leaveTypeInfo is List && leaveTypeInfo.isNotEmpty) {
+        final typeData = leaveTypeInfo[0];
+        if (typeData is Map && typeData.containsKey('name')) {
+          leaveTypeName = typeData['name'].toString();
+          final typeNameLower = leaveTypeName.toLowerCase();
+          autoDetectHalfDay =
+              typeNameLower.contains('demi') || typeNameLower.contains('half');
+        }
+      }
+    } catch (e) {
+      print('⚠️ Could not fetch leave type name: $e');
+    }
+
+    // Determine if it's a half-day: explicit parameter takes precedence, then auto-detect
+    final shouldBeHalfDay = isHalfDay ?? autoDetectHalfDay;
+
+    // If it's a half-day and dates are the same day, it's a single half-day
+    final isSameDay = dateFrom.year == dateTo.year &&
+        dateFrom.month == dateTo.month &&
+        dateFrom.day == dateTo.day;
+
     print('Creating leave request with:');
     print('  Employee ID: $employeeId');
     print('  Leave Type ID: $leaveTypeId');
+    print('  Leave Type Name: $leaveTypeName');
     print('  Date From (original): $dateFrom');
     print('  Date From (normalized): $normalizedDateFrom');
     print('  Date From (formatted): $formattedDateFrom');
     print('  Date To (original): $dateTo');
     print('  Date To (normalized): $normalizedDateTo');
     print('  Date To (formatted): $formattedDateTo');
+    print('  Is Same Day: $isSameDay');
+    print('  Is Half Day (explicit): $isHalfDay');
+    print('  Auto-detect Half Day: $autoDetectHalfDay');
+    print('  Should be Half Day: $shouldBeHalfDay');
     print('  Reason: $reason');
 
     try {
-      final leaveId = await _callRPC('object', 'execute', [
-        database,
-        _userId,
-        _password,
-        'hr.leave',
-        'create',
-        {
-          'employee_id': employeeId,
-          'holiday_status_id': leaveTypeId,
-          'request_date_from':
-              formattedDateFrom, // Use request_date_from instead of date_from
-          'request_date_to':
-              formattedDateTo, // Use request_date_to instead of date_to
-          'name': reason ?? 'Demande de congé',
-        }
-      ]);
+      // Build leave data
+      final leaveData = {
+        'employee_id': employeeId,
+        'holiday_status_id': leaveTypeId,
+        'request_date_from': formattedDateFrom,
+        'request_date_to': formattedDateTo,
+        'name': reason ?? 'Demande de congé',
+      };
+
+      // Add request_unit_half if it's a half-day and same day
+      if (shouldBeHalfDay && isSameDay) {
+        leaveData['request_unit_half'] = true;
+        print('✅ Adding request_unit_half: true');
+      }
+
+      final leaveId = await _callRPC('object', 'execute',
+          [database, _userId, _password, 'hr.leave', 'create', leaveData]);
 
       print('Leave request created successfully with ID: $leaveId');
       return leaveId;
