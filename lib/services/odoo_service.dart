@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
@@ -3856,6 +3857,362 @@ class OdooService {
     } catch (e) {
       print('Error fetching employee attendance: $e');
       return [];
+    }
+  }
+
+  // Get notifications sent by the current HR user
+  Future<List<Map<String, dynamic>>> getSentNotifications() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      // Get current user's employee ID
+      final employeeId = await getCurrentEmployeeId();
+      print('Fetching sent notifications for HR employee: $employeeId');
+
+      // Get the user ID associated with the employee
+      final employeeData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        }
+      ]);
+
+      if (employeeData is List && employeeData.isNotEmpty) {
+        final userData = employeeData.first;
+        final userId = userData['user_id'];
+
+        if (userId is List && userId.isNotEmpty) {
+          // Fetch mail.message records created by this user
+          final sentMessages = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'mail.message',
+            'search_read',
+            [
+              [
+                ['author_id', '=', userId[0]],
+                ['message_type', '=', 'notification'],
+              ]
+            ],
+            {
+              'fields': [
+                'id',
+                'subject',
+                'body',
+                'create_date',
+                'partner_ids',
+                'author_id',
+              ],
+              'order': 'create_date desc',
+              'limit': 50,
+            }
+          ]);
+
+          print(
+              'Found ${sentMessages is List ? sentMessages.length : 0} sent notifications');
+
+          if (sentMessages is List) {
+            final List<Map<String, dynamic>> validMessages = [];
+            for (var item in sentMessages) {
+              if (item is Map) {
+                try {
+                  validMessages.add(Map<String, dynamic>.from(item));
+                } catch (e) {
+                  print('Error converting message to Map: $e');
+                }
+              }
+            }
+            return validMessages;
+          }
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('Error fetching sent notifications: $e');
+      return [];
+    }
+  }
+
+  // Get expense reports for the current employee
+  Future<List<Map<String, dynamic>>> getEmployeeExpenses() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Fetching expenses for employee: $employeeId');
+
+      final expenses = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.expense',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+          ]
+        ],
+        {
+          'fields': [
+            'id',
+            'name',
+            'date',
+            'employee_id',
+            'payment_mode',
+            'total_amount',
+            'state',
+            'currency_id',
+            'product_id',
+            'product_uom_id',
+            'quantity',
+            'price_unit',
+            'tax_amount',
+            'description',
+            'sheet_id',
+            'company_id',
+            'create_date',
+            'write_date',
+          ],
+          'order': 'date desc, create_date desc',
+          'limit': 100,
+        }
+      ]);
+
+      print('Found ${expenses is List ? expenses.length : 0} expense records');
+
+      if (expenses is List) {
+        final List<Map<String, dynamic>> validExpenses = [];
+        for (var item in expenses) {
+          if (item is Map) {
+            try {
+              validExpenses.add(Map<String, dynamic>.from(item));
+            } catch (e) {
+              print('Error converting expense to Map: $e');
+            }
+          }
+        }
+        return validExpenses;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching employee expenses: $e');
+      return [];
+    }
+  }
+
+  // Get expense categories (products that can be expensed)
+  Future<List<Map<String, dynamic>>> getExpenseCategories() async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final categories = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'product.product',
+        'search_read',
+        [
+          [
+            ['can_be_expensed', '=', true],
+          ]
+        ],
+        {
+          'fields': ['id', 'name', 'default_code'],
+          'order': 'name asc',
+          'limit': 100,
+          'context': {'lang': 'fr_FR'}, // Request French translations
+        }
+      ]);
+
+      print(
+          'Found ${categories is List ? categories.length : 0} expense categories');
+
+      if (categories is List) {
+        final List<Map<String, dynamic>> validCategories = [];
+        for (var item in categories) {
+          if (item is Map) {
+            try {
+              validCategories.add(Map<String, dynamic>.from(item));
+            } catch (e) {
+              print('Error converting category to Map: $e');
+            }
+          }
+        }
+        return validCategories;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching expense categories: $e');
+      return [];
+    }
+  }
+
+  // Create a new expense report
+  Future<int> createExpense({
+    required String name,
+    required double totalAmount,
+    required DateTime date,
+    required String paymentMode,
+    required int? productId, // Category/Product ID
+    String? description,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      final employeeId = await getCurrentEmployeeId();
+      print('Creating expense for employee: $employeeId');
+
+      // Format date for Odoo (YYYY-MM-DD)
+      final formattedDate = date.toIso8601String().split('T')[0];
+
+      // Create expense data
+      final expenseData = {
+        'name': name,
+        'employee_id': employeeId,
+        'date': formattedDate,
+        'total_amount': totalAmount,
+        'payment_mode': paymentMode,
+        'product_id': productId ?? false,
+        'description': description?.isNotEmpty == true ? description : false,
+        'state': 'draft', // Start as draft
+      };
+
+      print('Expense data: $expenseData');
+
+      // Create expense in Odoo
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.expense',
+        'create',
+        [expenseData],
+        {},
+      ]);
+
+      print('✅ Expense created with ID: $result');
+      return result is int ? result : result as int;
+    } catch (e) {
+      print('❌ Error creating expense: $e');
+      rethrow;
+    }
+  }
+
+  // Delete an expense report
+  Future<bool> deleteExpense(int expenseId) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      print('Deleting expense with ID: $expenseId');
+
+      // Delete expense in Odoo
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.expense',
+        'unlink',
+        [
+          [expenseId]
+        ],
+      ]);
+
+      print('✅ Expense deleted: $result');
+      return result == true;
+    } catch (e) {
+      print('❌ Error deleting expense: $e');
+      rethrow;
+    }
+  }
+
+  // Upload a file attachment to Odoo
+  Future<int> uploadAttachment({
+    required String filename,
+    required List<int> fileBytes,
+    required String resModel,
+    required int resId,
+    String? mimetype,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    try {
+      // Convert file bytes to base64
+      final base64Content = base64Encode(fileBytes);
+
+      // Detect MIME type if not provided
+      final detectedMimetype = mimetype ?? _detectMimeType(filename);
+
+      // Create attachment data
+      final attachmentData = {
+        'name': filename,
+        'type': 'binary',
+        'datas': base64Content,
+        'res_model': resModel,
+        'res_id': resId,
+        'mimetype': detectedMimetype,
+      };
+
+      print('Uploading attachment: $filename (${fileBytes.length} bytes)');
+
+      // Create attachment in Odoo
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'ir.attachment',
+        'create',
+        [attachmentData],
+        {},
+      ]);
+
+      print('✅ Attachment uploaded with ID: $result');
+      return result is int ? result : result as int;
+    } catch (e) {
+      print('❌ Error uploading attachment: $e');
+      rethrow;
+    }
+  }
+
+  // Detect MIME type from filename
+  String _detectMimeType(String filename) {
+    final extension = filename.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      default:
+        return 'application/octet-stream';
     }
   }
 }

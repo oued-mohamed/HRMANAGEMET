@@ -255,7 +255,60 @@ class _HRDrawerState extends State<HRDrawer> {
                           },
                         ),
 
-                        // 6. Notifications RH
+                        const Divider(color: Colors.white30, thickness: 1),
+
+                        // 6. Paie & avantages
+                        _buildExpandableMenuItem(
+                          context: context,
+                          localizations: localizations,
+                          icon: Icons.account_balance_wallet,
+                          title: localizations.translate('pay_benefits'),
+                          children: [
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title:
+                                  localizations.translate('salary_information'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(localizations
+                                        .translate('salary_information')),
+                                    backgroundColor: const Color(0xFF35BF8C),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('my_benefits'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        localizations.translate('my_benefits')),
+                                    backgroundColor: const Color(0xFF35BF8C),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('expense_report'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushNamed(
+                                    context, '/expense-reports');
+                              },
+                            ),
+                          ],
+                        ),
+
+                        // 7. Notifications RH
                         ListTile(
                           leading: const Icon(
                             Icons.notifications_outlined,

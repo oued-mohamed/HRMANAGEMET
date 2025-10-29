@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
+import '../widgets/hr_sent_notifications_list.dart';
 
 class HRNotificationsScreen extends StatefulWidget {
   const HRNotificationsScreen({super.key});
@@ -9,7 +10,9 @@ class HRNotificationsScreen extends StatefulWidget {
   State<HRNotificationsScreen> createState() => _HRNotificationsScreenState();
 }
 
-class _HRNotificationsScreenState extends State<HRNotificationsScreen> {
+class _HRNotificationsScreenState extends State<HRNotificationsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
@@ -22,11 +25,13 @@ class _HRNotificationsScreenState extends State<HRNotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadEmployees();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _titleController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -228,36 +233,74 @@ class _HRNotificationsScreenState extends State<HRNotificationsScreen> {
 
               const SizedBox(height: 24),
 
+              // Tab Bar
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: isDesktop ? 32 : 20),
+                padding: EdgeInsets.all(isDesktop ? 24 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: const Color(0xFF000B58),
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: const Color(0xFF35BF8C),
+                  indicatorWeight: 3,
+                  tabs: [
+                    Tab(
+                      text: localizations.translate('send_notifications'),
+                      icon: const Icon(Icons.send),
+                    ),
+                    Tab(
+                      text: 'Historique',
+                      icon: const Icon(Icons.history),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Content
               Expanded(
-                child: SingleChildScrollView(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: isDesktop ? 32 : 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Notification Type Selection
-                      _buildNotificationTypeSelector(localizations, isDesktop),
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Send Notifications Tab
+                    SingleChildScrollView(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: isDesktop ? 32 : 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Notification Type Selection
+                          _buildNotificationTypeSelector(
+                              localizations, isDesktop),
 
-                      const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                      // Notification Form
-                      _buildNotificationForm(localizations, isDesktop),
+                          // Notification Form
+                          _buildNotificationForm(localizations, isDesktop),
 
-                      const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                      // Employee Selection (if needed)
-                      if (_notificationType == 'selected') ...[
-                        _buildEmployeeSelector(localizations, isDesktop),
-                        const SizedBox(height: 24),
-                      ],
+                          // Employee Selection (if needed)
+                          if (_notificationType == 'selected') ...[
+                            _buildEmployeeSelector(localizations, isDesktop),
+                            const SizedBox(height: 24),
+                          ],
 
-                      // Send Button
-                      _buildSendButton(localizations, isDesktop),
+                          // Send Button
+                          _buildSendButton(localizations, isDesktop),
 
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                    // History Tab
+                    HRSentNotificationsList(),
+                  ],
                 ),
               ),
             ],

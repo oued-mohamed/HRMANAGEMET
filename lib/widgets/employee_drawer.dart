@@ -4,6 +4,7 @@ import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 import '../services/notification_service.dart';
+import '../services/odoo_service.dart';
 
 class EmployeeDrawer extends StatefulWidget {
   const EmployeeDrawer({super.key});
@@ -13,11 +14,58 @@ class EmployeeDrawer extends StatefulWidget {
 }
 
 class _EmployeeDrawerState extends State<EmployeeDrawer> {
+  int _uncompletedTasksCount = 0;
+
   @override
   void initState() {
     super.initState();
     // Initialiser le service si nécessaire
     UserService.instance.initialize();
+    _loadUncompletedTasksCount();
+  }
+
+  @override
+  void didUpdateWidget(EmployeeDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh count when widget updates
+    _loadUncompletedTasksCount();
+  }
+
+  Future<void> _loadUncompletedTasksCount() async {
+    try {
+      final tasks = await OdooService().getEmployeeTasks();
+      print('📊 Total tasks fetched: ${tasks.length}');
+
+      // Filter for uncompleted tasks (anything that is not completed)
+      final uncompletedTasks = tasks.where((task) {
+        final status = task['status']?.toString().toLowerCase() ?? '';
+        final isCompleted = status == 'completed' ||
+            status.contains('done') ||
+            status.contains('completed');
+        if (isCompleted) {
+          print('✅ Task "${task['title']}" is completed (status: $status)');
+        } else {
+          print('⏳ Task "${task['title']}" is NOT completed (status: $status)');
+        }
+        return !isCompleted;
+      }).toList();
+
+      print('📋 Uncompleted tasks count: ${uncompletedTasks.length}');
+
+      if (mounted) {
+        setState(() {
+          _uncompletedTasksCount = uncompletedTasks.length;
+          print('🎯 Updated drawer badge count to: $_uncompletedTasksCount');
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading tasks count: $e');
+      if (mounted) {
+        setState(() {
+          _uncompletedTasksCount = 0;
+        });
+      }
+    }
   }
 
   @override
@@ -273,8 +321,8 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               title: localizations.translate('expense_report'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _showSnackBar(context,
-                                    localizations.translate('expense_report'));
+                                Navigator.pushNamed(
+                                    context, '/expense-reports');
                               },
                             ),
                           ],
@@ -294,9 +342,30 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          onTap: () {
+                          trailing: _uncompletedTasksCount > 0
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '$_uncompletedTasksCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          onTap: () async {
                             Navigator.pop(context);
-                            Navigator.pushNamed(context, '/employee-tasks');
+                            await Navigator.pushNamed(
+                                context, '/employee-tasks');
+                            // Refresh count when returning from tasks screen
+                            _loadUncompletedTasksCount();
                           },
                         ),
 
