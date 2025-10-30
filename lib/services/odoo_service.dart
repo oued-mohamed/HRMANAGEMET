@@ -1171,55 +1171,122 @@ class OdooService {
     }
   }
 
-  // Get employee documents/attachments
+  // Get employee documents from documents.document model
   Future<List<Map<String, dynamic>>> getEmployeeDocuments() async {
-    print('Fetching employee documents...');
+    print('📄 Fetching employee documents from documents.document...');
 
     try {
       final employeeId = await getCurrentEmployeeId();
-      print('Employee ID: $employeeId');
+      print('📄 Employee ID: $employeeId');
+      final currentUserId = _userId;
 
-      // Fetch attachments related to the employee
+      // Try to get the partner of the current user (used by Documents app)
+      int? partnerId;
+      try {
+        final userRes = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'res.users',
+          'read',
+          [currentUserId],
+          {
+            'fields': ['partner_id']
+          }
+        ]);
+        if (userRes is List && userRes.isNotEmpty) {
+          final u = Map<String, dynamic>.from(userRes.first);
+          if (u['partner_id'] is List && u['partner_id'].isNotEmpty) {
+            partnerId = u['partner_id'][0] as int;
+          }
+        }
+      } catch (_) {
+        // ignore partner resolution errors; we'll still query by other criteria
+      }
+
+      // Build domain correctly using operator tokens. Base condition: link to employee
+      final List<dynamic> baseAnd = [
+        '&',
+        ['res_model', '=', 'hr.employee'],
+        ['res_id', '=', employeeId],
+      ];
+
+      final ownerCond =
+          currentUserId != null ? ['owner_id', '=', currentUserId] : null;
+      final partnerCond =
+          partnerId != null ? ['partner_id', '=', partnerId] : null;
+
+      final List<dynamic> domain = <dynamic>[];
+      if (ownerCond != null && partnerCond != null) {
+        domain
+          ..add('|')
+          ..add('|')
+          ..addAll(baseAnd)
+          ..add(ownerCond)
+          ..add(partnerCond);
+      } else if (ownerCond != null) {
+        domain
+          ..add('|')
+          ..addAll(baseAnd)
+          ..add(ownerCond);
+      } else if (partnerCond != null) {
+        domain
+          ..add('|')
+          ..addAll(baseAnd)
+          ..add(partnerCond);
+      } else {
+        domain.addAll(baseAnd);
+      }
+
       final documents = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
-        'ir.attachment',
+        'documents.document',
         'search_read',
-        [
-          [
-            ['res_model', '=', 'hr.employee'],
-            ['res_id', '=', employeeId],
-          ]
-        ],
+        [domain],
         {
           'fields': [
             'id',
             'name',
-            'datas_fname',
+            'display_name',
+            'attachment_name',
+            'attachment_id',
+            'attachment_type',
             'mimetype',
-            'file_size',
             'create_date',
-            'type',
+            'write_date',
             'description',
+            'checksum',
+            'res_model',
+            'res_id',
+            'owner_id',
+            'partner_id',
+            'company_id',
+            'folder_id',
           ],
-          'order': 'create_date desc',
+          'order': 'id desc',
+          'limit': 1000,
           'context': {'lang': 'fr_FR'}
         }
       ]);
 
-      print('Found ${documents is List ? documents.length : 0} documents');
+      print('📄 Found ${documents is List ? documents.length : 0} documents');
 
       if (documents is List) {
-        return documents
-            .map<Map<String, dynamic>>(
-                (e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        final validDocuments = <Map<String, dynamic>>[];
+        for (var doc in documents) {
+          if (doc is Map<String, dynamic>) {
+            validDocuments.add(Map<String, dynamic>.from(doc));
+          }
+        }
+        print('📄 Valid documents: ${validDocuments.length}');
+        return validDocuments;
       }
 
       return [];
     } catch (e) {
-      print('Error fetching employee documents: $e');
+      print('📄 ❌ Error fetching employee documents: $e');
       return [];
     }
   }
@@ -1248,6 +1315,116 @@ class OdooService {
     } catch (e) {
       print('Error downloading document: $e');
       return null;
+    }
+  }
+
+  // Find first attachment for a given documents.document record
+  Future<int?> getFirstAttachmentIdForDocument(int documentId) async {
+    try {
+      final attachments = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'ir.attachment',
+        'search_read',
+        [
+          [
+            ['res_model', '=', 'documents.document'],
+            ['res_id', '=', documentId],
+          ]
+        ],
+        {
+          'fields': ['id'],
+          'order': 'create_date desc',
+          'limit': 1,
+        }
+      ]);
+
+      if (attachments is List && attachments.isNotEmpty) {
+        final first = Map<String, dynamic>.from(attachments.first);
+        final id = first['id'];
+        if (id is int) return id;
+      }
+      return null;
+    } catch (e) {
+      print('Error searching attachment for document $documentId: $e');
+      return null;
+    }
+  }
+
+  // Create a document and upload an attachment, linking both
+  Future<bool> createDocumentWithAttachment({
+    required String name,
+    required String mimeType,
+    required String base64Data,
+    int? folderId,
+  }) async {
+    try {
+      // Create document record
+      final Map<String, dynamic> vals = {
+        'name': name,
+      };
+      if (folderId != null) vals['folder_id'] = folderId;
+
+      final docId = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'documents.document',
+        'create',
+        [vals],
+      ]);
+
+      if (docId is! int) {
+        throw Exception('Document creation failed');
+      }
+
+      // Create attachment linked to the new document
+      final attachmentId = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'ir.attachment',
+        'create',
+        [
+          {
+            'name': name,
+            'datas': base64Data,
+            'mimetype': mimeType,
+            'res_model': 'documents.document',
+            'res_id': docId,
+          }
+        ],
+      ]);
+
+      if (attachmentId is! int) {
+        throw Exception('Attachment creation failed');
+      }
+
+      // Link attachment to document (if field is present)
+      try {
+        await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'documents.document',
+          'write',
+          [
+            [docId],
+            {
+              'attachment_id': attachmentId,
+              'attachment_name': name,
+            }
+          ],
+        ]);
+      } catch (_) {
+        // if write fails (field missing), ignore
+      }
+
+      return true;
+    } catch (e) {
+      print('Error creating document with attachment: $e');
+      return false;
     }
   }
 

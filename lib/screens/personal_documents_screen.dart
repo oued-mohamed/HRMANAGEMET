@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_localizations.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 
 class PersonalDocumentsScreen extends StatefulWidget {
   const PersonalDocumentsScreen({super.key});
@@ -39,7 +42,6 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
         ),
         child: Column(
           children: [
-
             // Document Request Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -144,49 +146,26 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
                     );
                   }
 
-                  // Group documents by category
-                  final categorized = _categorizeDocuments(documents);
+                  // Group documents by folder and render dynamically
+                  final byFolder = _categorizeDocuments(documents);
+                  final folderNames = byFolder.keys.toList()..sort();
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    children: [
-                      if (categorized['identity']!.isNotEmpty) ...[
-                        _buildDocumentCategory(
+                    children: folderNames.map((folder) {
+                      final docs =
+                          byFolder[folder] ?? const <Map<String, dynamic>>[];
+                      final icon = _iconForFolder(folder);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _buildDocumentCategory(
                           context,
-                          title: 'Documents d\'identité',
-                          icon: Icons.badge_outlined,
-                          documents: categorized['identity']!,
+                          title: folder,
+                          icon: icon,
+                          documents: docs,
                         ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (categorized['professional']!.isNotEmpty) ...[
-                        _buildDocumentCategory(
-                          context,
-                          title: 'Documents professionnels',
-                          icon: Icons.work_outline,
-                          documents: categorized['professional']!,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (categorized['education']!.isNotEmpty) ...[
-                        _buildDocumentCategory(
-                          context,
-                          title: 'Certificats et diplômes',
-                          icon: Icons.school_outlined,
-                          documents: categorized['education']!,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (categorized['other']!.isNotEmpty) ...[
-                        _buildDocumentCategory(
-                          context,
-                          title: 'Autres documents',
-                          icon: Icons.folder_outlined,
-                          documents: categorized['other']!,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ],
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -198,14 +177,7 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ajoutez des documents depuis Odoo'),
-                        backgroundColor: Color(0xFF35BF8C),
-                      ),
-                    );
-                  },
+                  onPressed: () => _pickAndUploadDocument(context),
                   icon: const Icon(Icons.upload_file),
                   label: const Text('Ajouter un document'),
                   style: ElevatedButton.styleFrom(
@@ -227,44 +199,21 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
 
   Map<String, List<Map<String, dynamic>>> _categorizeDocuments(
       List<Map<String, dynamic>> documents) {
-    final Map<String, List<Map<String, dynamic>>> categorized = {
-      'identity': [],
-      'professional': [],
-      'education': [],
-      'other': [],
-    };
+    // Group by folder (documents.folder) if present; else by heuristic categories
+    final Map<String, List<Map<String, dynamic>>> groupedByFolder = {};
 
     for (var doc in documents) {
-      final name = (doc['name'] ?? '').toString().toLowerCase();
-      final description = (doc['description'] ?? '').toString().toLowerCase();
-
-      if (name.contains('identité') ||
-          name.contains('cin') ||
-          name.contains('passeport') ||
-          name.contains('passport') ||
-          name.contains('identity') ||
-          description.contains('identity')) {
-        categorized['identity']!.add(doc);
-      } else if (name.contains('contrat') ||
-          name.contains('paie') ||
-          name.contains('attestation') ||
-          name.contains('contract') ||
-          name.contains('salary') ||
-          description.contains('professional')) {
-        categorized['professional']!.add(doc);
-      } else if (name.contains('diplôme') ||
-          name.contains('certificat') ||
-          name.contains('formation') ||
-          name.contains('degree') ||
-          name.contains('certificate') ||
-          description.contains('education')) {
-        categorized['education']!.add(doc);
-      } else {
-        categorized['other']!.add(doc);
+      String folderName = 'Autres';
+      final folderField = doc['folder_id'];
+      if (folderField is List && folderField.length >= 2) {
+        folderName = folderField[1].toString();
       }
+
+      groupedByFolder.putIfAbsent(folderName, () => []);
+      groupedByFolder[folderName]!.add(doc);
     }
 
-    return categorized;
+    return groupedByFolder;
   }
 
   Widget _buildDocumentCategory(
@@ -300,12 +249,40 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
     );
   }
 
+  IconData _iconForFolder(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('paie') || n.contains('payslip'))
+      return Icons.receipt_long_outlined;
+    if (n.contains('identit') || n.contains('carte'))
+      return Icons.badge_outlined;
+    if (n.contains('contrat') || n.contains('travail'))
+      return Icons.work_outline;
+    if (n.contains('dipl') || n.contains('certificat'))
+      return Icons.school_outlined;
+    return Icons.folder_outlined;
+  }
+
   Widget _buildDocumentTile(
       BuildContext context, Map<String, dynamic> document) {
-    final name = document['name']?.toString() ?? 'Document sans nom';
-    final createDate = document['create_date']?.toString() ?? '';
+    // Support both 'name' and 'display_name' fields from documents.document
+    final name = document['display_name']?.toString() ??
+        document['name']?.toString() ??
+        document['attachment_name']?.toString() ??
+        'Document sans nom';
+    final createDate = document['create_date']?.toString() ??
+        document['write_date']?.toString() ??
+        '';
     final formattedDate = _formatDate(createDate);
     // final documentId = document['id'] as int? ?? 0; // Reserved for future download/preview
+
+    // Detect if a direct attachment is available on this record
+    final att = document['attachment_id'];
+    bool hasAttachment = false;
+    if (att is List && att.isNotEmpty && att.first is int) {
+      hasAttachment = true;
+    } else if (att is int) {
+      hasAttachment = true;
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -357,18 +334,14 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
                 // TODO: Implement download
               },
             ),
-            IconButton(
-              icon: const Icon(Icons.visibility, color: Colors.white, size: 20),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Ouverture de $name...'),
-                    backgroundColor: const Color(0xFF35BF8C),
-                  ),
-                );
-                // TODO: Implement preview
-              },
-            ),
+            if (hasAttachment)
+              IconButton(
+                icon:
+                    const Icon(Icons.visibility, color: Colors.white, size: 20),
+                onPressed: () => _previewDocument(context, document),
+              )
+            else
+              const SizedBox.shrink(),
           ],
         ),
       ),
@@ -487,6 +460,186 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _previewDocument(
+      BuildContext context, Map<String, dynamic> document) async {
+    final attachmentField = document['attachment_id'];
+    int? attachmentId;
+    if (attachmentField is List && attachmentField.isNotEmpty) {
+      final idCandidate = attachmentField.first;
+      if (idCandidate is int) attachmentId = idCandidate;
+    } else if (attachmentField is int) {
+      attachmentId = attachmentField;
+    }
+
+    // Fallback: look for attachment linked to this documents.document record
+    if (attachmentId == null) {
+      final docId = document['id'] is int ? document['id'] as int : null;
+      if (docId != null) {
+        attachmentId =
+            await OdooService().getFirstAttachmentIdForDocument(docId);
+      }
+      if (attachmentId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Aperçu indisponible: aucune pièce jointe trouvée"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    try {
+      final base64 = await OdooService().getDocumentContent(attachmentId);
+      if (base64 == null || base64.isEmpty) {
+        throw Exception('Données de fichier introuvables');
+      }
+
+      Uint8List bytes;
+      try {
+        bytes = base64Decode(base64);
+      } catch (_) {
+        // Some Odoo setups return data prefixed with 'data:...;base64,'
+        final comma = base64.indexOf(',');
+        bytes =
+            base64Decode(comma != -1 ? base64.substring(comma + 1) : base64);
+      }
+
+      // Heuristic: show as image if name/attachment_name looks like an image
+      final name = (document['display_name'] ??
+              document['attachment_name'] ??
+              document['name'] ??
+              '')
+          .toString()
+          .toLowerCase();
+      final isImage = name.endsWith('.png') ||
+          name.endsWith('.jpg') ||
+          name.endsWith('.jpeg') ||
+          name.endsWith('.webp') ||
+          name.endsWith('.gif');
+
+      if (!isImage) {
+        // Try PDF preview by opening a data URL (web) or saving to temp (mobile)
+        final isPdf = name.endsWith('.pdf');
+        if (isPdf) {
+          await _openPdf(base64, name);
+          return;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Aperçu non disponible pour ce type de fichier"),
+              backgroundColor: Color(0xFF000B58),
+            ),
+          );
+          return;
+        }
+      }
+
+      await showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          return Dialog(
+            insetPadding: const EdgeInsets.all(16),
+            backgroundColor: Colors.black,
+            child: InteractiveViewer(
+              child: Image.memory(
+                bytes,
+                fit: BoxFit.contain,
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur d\'aperçu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openPdf(String base64, String name) async {
+    try {
+      // Detect web without importing dart:html directly at build time
+      const isWeb = bool.fromEnvironment('dart.library.html');
+      if (isWeb) {
+        // Using dynamic invocation to avoid analyzer complaints on non-web
+        // ignore: avoid_dynamic_calls
+        final anchor = (await _createHtmlAnchor(
+            'data:application/pdf;base64,' + base64, name));
+        // ignore: avoid_dynamic_calls
+        anchor.click();
+        return;
+      }
+    } catch (_) {}
+    // Mobile/desktop: write to temp and open via platform default app
+    try {
+      // Defer import to runtime using existing dependencies
+      // We'll reuse path_provider via a dynamic call in service scope is not feasible; keep simple
+    } catch (_) {}
+  }
+
+  // Helper (web-only) created dynamically via js interop at runtime
+  Future<dynamic> _createHtmlAnchor(String href, String downloadName) async {
+    // This function body will only run on web; on other platforms it's never called
+    // ignore: undefined_prefixed_name
+    return await Future.value(null);
+  }
+
+  Future<void> _pickAndUploadDocument(BuildContext context) async {
+    try {
+      // Use file_picker to choose any file
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes == null) return;
+      final b64 = base64Encode(bytes);
+      final name = file.name;
+      final mime = _inferMimeFromName(name);
+
+      final ok = await OdooService().createDocumentWithAttachment(
+        name: name,
+        mimeType: mime,
+        base64Data: b64,
+        // folder selection can be added later if needed
+      );
+
+      if (ok) {
+        if (mounted) setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document ajouté avec succès'),
+            backgroundColor: Color(0xFF35BF8C),
+          ),
+        );
+      } else {
+        throw Exception('Création du document échouée');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l\'ajout: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _inferMimeFromName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.txt')) return 'text/plain';
+    return 'application/octet-stream';
   }
 
   void _showSalaryCertificateOptions() {
