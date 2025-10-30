@@ -33,6 +33,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     UserService.instance.initialize();
     _notificationService.addListener(_onNotificationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Open drawer on demand if route asked for it
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['openDrawer'] == true) {
+        _scaffoldKey.currentState?.openDrawer();
+      }
       _loadLeaveBalance();
       _loadNotifications();
     });

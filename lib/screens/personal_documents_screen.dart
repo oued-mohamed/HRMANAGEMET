@@ -5,6 +5,7 @@ import '../utils/app_localizations.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import '../utils/navigation_helpers.dart';
 
 class PersonalDocumentsScreen extends StatefulWidget {
   const PersonalDocumentsScreen({super.key});
@@ -21,6 +22,10 @@ class _PersonalDocumentsScreenState extends State<PersonalDocumentsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: Text(
           localizations.translate('personal_documents'),
           style: const TextStyle(color: Colors.white),

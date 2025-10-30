@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/navigation_helpers.dart';
 import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 
@@ -58,6 +59,10 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: const Text('Solde de mes congés'),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/leave_provider.dart';
 
@@ -729,6 +730,10 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: const Text('Calendrier des congés - Tous les employés'),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,

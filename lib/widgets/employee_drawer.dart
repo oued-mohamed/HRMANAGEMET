@@ -139,9 +139,17 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushReplacementNamed(
-                                context, '/employee-dashboard');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/employee-menu') {
+                              Navigator.pushReplacementNamed(
+                                  context, '/employee-dashboard');
+                            } else {
+                              Navigator.pop(context);
+                              Future.microtask(() =>
+                                  Navigator.pushReplacementNamed(
+                                      context, '/employee-dashboard'));
+                            }
                           },
                         ),
 
@@ -236,8 +244,16 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               localizations: localizations,
                               title: localizations.translate('calendar'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-calendar');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                }
                               },
                             ),
                           ],
@@ -255,9 +271,16 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               localizations: localizations,
                               title: localizations.translate('working_time'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/work-time-statistics');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/work-time-statistics');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/work-time-statistics');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -265,8 +288,14 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               localizations: localizations,
                               title: localizations.translate('time_tracking'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/attendance');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(context, '/attendance');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(context, '/attendance');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -275,9 +304,16 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               title: localizations
                                   .translate('time_tracking_history'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/attendance-history');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                }
                               },
                             ),
                           ],
@@ -298,7 +334,11 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               title:
                                   localizations.translate('salary_information'),
                               onTap: () {
-                                Navigator.pop(context);
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute != '/employee-menu') {
+                                  Navigator.pop(context);
+                                }
                                 _showSnackBar(
                                     context,
                                     localizations
@@ -310,7 +350,11 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               localizations: localizations,
                               title: localizations.translate('my_benefits'),
                               onTap: () {
-                                Navigator.pop(context);
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute != '/employee-menu') {
+                                  Navigator.pop(context);
+                                }
                                 _showSnackBar(context,
                                     localizations.translate('my_benefits'));
                               },
@@ -320,9 +364,16 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                               localizations: localizations,
                               title: localizations.translate('expense_report'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/expense-reports');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                }
                               },
                             ),
                           ],
@@ -450,11 +501,19 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
       contentPadding: const EdgeInsets.only(left: 16, right: 12),
       horizontalTitleGap: 8,
       minLeadingWidth: 0,
+      leading: Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Icon(
+          Icons.circle,
+          size: 9,
+          color: Colors.white.withOpacity(0.6),
+        ),
+      ),
       title: Text(
         title,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: 13,
+          color: Colors.white.withOpacity(0.85),
+          fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
       ),

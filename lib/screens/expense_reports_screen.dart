@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import '../services/odoo_service.dart';
 import '../widgets/employee_drawer.dart';
+import '../utils/navigation_helpers.dart';
 import '../presentation/providers/language_provider.dart';
 
 class ExpenseReportsScreen extends StatefulWidget {
@@ -170,17 +171,16 @@ class _ExpenseReportsScreenState extends State<ExpenseReportsScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Menu Button
+                    // Back Button (instead of hamburger)
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFF000B58).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openDrawer(),
+                        onPressed: () => NavigationHelpers.backToMenu(context),
                         icon: const Icon(
-                          Icons.menu,
+                          Icons.arrow_back,
                           color: Color(0xFF000B58),
                           size: 24,
                         ),

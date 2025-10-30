@@ -7,6 +7,7 @@ import '../services/user_service.dart';
 import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import '../utils/navigation_helpers.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../utils/app_localizations.dart';
@@ -354,6 +355,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: Text(
           localizations.translate('personal_employment_info'),
           style: const TextStyle(color: Colors.white),

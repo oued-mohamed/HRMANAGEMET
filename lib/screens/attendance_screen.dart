@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -73,7 +74,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           content: Text(localizations.translate('location_permission_message')),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => NavigationHelpers.backToMenu(context),
               child: Text(localizations.translate('cancel')),
             ),
             TextButton(
@@ -101,7 +102,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           content: Text(localizations.translate('web_location_message')),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => NavigationHelpers.backToMenu(context),
               child: Text(localizations.translate('cancel')),
             ),
             ElevatedButton(

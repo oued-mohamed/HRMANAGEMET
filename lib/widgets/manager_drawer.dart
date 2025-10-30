@@ -90,9 +90,19 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushReplacementNamed(
-                                context, '/manager-dashboard');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/manager-menu') {
+                              // We are in the overlay; just replace with dashboard
+                              Navigator.pushReplacementNamed(
+                                  context, '/manager-dashboard');
+                            } else {
+                              // Close drawer then navigate on next microtask to avoid lock
+                              Navigator.pop(context);
+                              Future.microtask(() =>
+                                  Navigator.pushReplacementNamed(
+                                      context, '/manager-dashboard'));
+                            }
                           },
                         ),
 
@@ -111,8 +121,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               title: localizations
                                   .translate('personal_employment_info'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/personal-info');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/personal-info');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/personal-info');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -121,9 +139,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               title:
                                   localizations.translate('personal_documents'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/personal-documents');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/personal-documents');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/personal-documents');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -132,9 +157,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               title:
                                   localizations.translate('profile_settings'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/profile-settings');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/profile-settings');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/profile-settings');
+                                }
                               },
                             ),
                           ],
@@ -152,8 +184,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('request_leave'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-request');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-request');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-request');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -161,8 +201,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('leave_balance'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-balance');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-balance');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-balance');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -183,8 +231,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('calendar'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-calendar');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                }
                               },
                             ),
                           ],
@@ -202,8 +258,14 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('punch_in_out'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/attendance');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(context, '/attendance');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(context, '/attendance');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -211,9 +273,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('punch_history'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/attendance-history');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                }
                               },
                             ),
                           ],
@@ -236,8 +305,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/manager-employees');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/manager-menu') {
+                              Navigator.pushNamed(
+                                  context, '/manager-employees');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(
+                                  context, '/manager-employees');
+                            }
                           },
                         ),
 
@@ -256,8 +333,14 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/leave-management');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/manager-menu') {
+                              Navigator.pushNamed(context, '/leave-management');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/leave-management');
+                            }
                           },
                         ),
 
@@ -306,9 +389,16 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               localizations: localizations,
                               title: localizations.translate('expense_report'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/expense-reports');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                }
                               },
                             ),
                           ],

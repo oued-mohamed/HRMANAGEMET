@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 
@@ -20,6 +21,10 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: Text(localizations.translate('working_time')),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,

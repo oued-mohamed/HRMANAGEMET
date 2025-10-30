@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
 import 'package:intl/intl.dart';
+import '../utils/navigation_helpers.dart';
 
 class LeaveManagementScreen extends StatefulWidget {
   const LeaveManagementScreen({super.key});
@@ -15,6 +16,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   bool _isLoading = true;
   String _selectedFilter = 'all';
   String _searchQuery = '';
+  bool _initialArgsApplied = false;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -22,6 +24,18 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   void initState() {
     super.initState();
     _loadLeaveData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialArgsApplied) return;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['initialFilter'] is String) {
+      _selectedFilter = args['initialFilter'];
+      _filterLeaves();
+    }
+    _initialArgsApplied = true;
   }
 
   @override
@@ -196,6 +210,16 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              NavigationHelpers.backToMenu(context);
+            }
+          },
+        ),
         title: const Text('Gestion des congés'),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,
@@ -528,7 +552,8 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approuver'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35BF8C).withOpacity(0.1),
+                        backgroundColor:
+                            const Color(0xFF35BF8C).withOpacity(0.1),
                         foregroundColor: const Color(0xFF35BF8C),
                         elevation: 0,
                         shape: RoundedRectangleBorder(

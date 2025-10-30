@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import '../services/odoo_service.dart';
 import '../data/models/employee_model.dart';
 
@@ -157,6 +158,10 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: Text(
           'Mes Tâches',
           style: TextStyle(

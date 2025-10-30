@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
 
@@ -116,6 +117,10 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: const Text('Demande de congé'),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,

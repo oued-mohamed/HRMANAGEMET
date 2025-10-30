@@ -81,8 +81,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
-                            onPressed: () =>
-                                _scaffoldKey.currentState?.openDrawer(),
+                            onPressed: () {
+                              Navigator.pushReplacementNamed(
+                                  context, '/manager-menu');
+                            },
                             icon: const Icon(
                               Icons.menu,
                               color: Colors.white,
@@ -250,7 +252,12 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         localizations,
                                         onTap: () {
                                           Navigator.pushNamed(
-                                              context, '/leave-management');
+                                            context,
+                                            '/leave-management',
+                                            arguments: {
+                                              'initialFilter': 'pending',
+                                            },
+                                          );
                                         },
                                       ),
                                       _buildModernStatCard(

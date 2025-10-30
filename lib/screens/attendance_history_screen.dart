@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/navigation_helpers.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -71,6 +72,10 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => NavigationHelpers.backToMenu(context),
+        ),
         title: Text(localizations.translate('attendance_history')),
         backgroundColor: const Color(0xFF000B58),
         foregroundColor: Colors.white,

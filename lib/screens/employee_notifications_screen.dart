@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
+import '../utils/navigation_helpers.dart';
 import '../widgets/employee_drawer.dart';
 
 class EmployeeNotificationsScreen extends StatefulWidget {
@@ -127,6 +128,8 @@ class _EmployeeNotificationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    // import helper
+    // ignore: unused_local_variable
     final localizations = AppLocalizations.of(context);
 
     return Scaffold(
@@ -587,7 +590,7 @@ class _EmployeeNotificationsScreenState
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => NavigationHelpers.backToMenu(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Color(0xFF35BF8C)),
