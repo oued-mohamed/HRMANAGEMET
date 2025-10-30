@@ -14,8 +14,14 @@ class NavigationHelpers {
       }
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final role = auth.currentCompany?.userRole ?? UserRole.employee;
-      final route =
-          role == UserRole.manager ? '/manager-menu' : '/employee-menu';
+      String route;
+      if (role == UserRole.manager) {
+        route = '/manager-menu';
+      } else if (role == UserRole.hr) {
+        route = '/hr-menu';
+      } else {
+        route = '/employee-menu';
+      }
       // If nothing to pop, replace with the appropriate menu
       Navigator.pushReplacementNamed(context, route);
     } catch (_) {

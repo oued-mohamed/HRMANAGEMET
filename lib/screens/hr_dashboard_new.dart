@@ -170,11 +170,10 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
                 ),
                 child: Row(
                   children: [
-                    // Hamburger Menu
+                    // Hamburger Menu - navigate to HR menu overlay
                     IconButton(
                       onPressed: () {
-                        print('Hamburger button pressed'); // Debug
-                        _scaffoldKey.currentState?.openDrawer();
+                        Navigator.pushReplacementNamed(context, '/hr-menu');
                       },
                       icon: const Icon(
                         Icons.menu,

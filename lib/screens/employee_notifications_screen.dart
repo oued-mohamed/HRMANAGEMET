@@ -169,9 +169,8 @@ class _EmployeeNotificationsScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openDrawer(),
-                        icon: const Icon(Icons.menu_rounded,
+                        onPressed: () => NavigationHelpers.backToMenu(context),
+                        icon: const Icon(Icons.arrow_back,
                             color: Colors.white, size: 26),
                       ),
                     ),

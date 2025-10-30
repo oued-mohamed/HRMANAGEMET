@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/employee_menu_overlay.dart';
 import 'screens/employee_menu_overlay_manager.dart';
+import 'screens/hr_menu_overlay.dart';
 import 'package:provider/provider.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -130,6 +131,7 @@ class HRManagementApp extends StatelessWidget {
               '/expense-reports': (context) => const ExpenseReportsScreen(),
               '/employee-menu': (context) => const EmployeeMenuOverlay(),
               '/manager-menu': (context) => const ManagerMenuOverlay(),
+              '/hr-menu': (context) => const HRMenuOverlay(),
             },
           );
         },

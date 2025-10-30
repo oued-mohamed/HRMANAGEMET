@@ -90,9 +90,17 @@ class _HRDrawerState extends State<HRDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushReplacementNamed(
-                                context, '/hr-dashboard');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/hr-menu') {
+                              Navigator.pushReplacementNamed(
+                                  context, '/hr-dashboard');
+                            } else {
+                              Navigator.pop(context);
+                              Future.microtask(() =>
+                                  Navigator.pushReplacementNamed(
+                                      context, '/hr-dashboard'));
+                            }
                           },
                         ),
 
@@ -111,8 +119,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               title: localizations
                                   .translate('personal_employment_info'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/personal-info');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/personal-info');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/personal-info');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -121,9 +137,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               title:
                                   localizations.translate('personal_documents'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/personal-documents');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/personal-documents');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/personal-documents');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -132,9 +155,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               title:
                                   localizations.translate('profile_settings'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/profile-settings');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/profile-settings');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/profile-settings');
+                                }
                               },
                             ),
                           ],
@@ -152,8 +182,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('request_leave'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-request');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-request');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-request');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -161,8 +199,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('leave_balance'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-balance');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-balance');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-balance');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -171,7 +217,11 @@ class _HRDrawerState extends State<HRDrawer> {
                               title:
                                   localizations.translate('unexpected_absence'),
                               onTap: () {
-                                Navigator.pop(context);
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute != '/hr-menu') {
+                                  Navigator.pop(context);
+                                }
                                 _showSnackBar(
                                     context,
                                     localizations
@@ -183,8 +233,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('calendar'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/leave-calendar');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/leave-calendar');
+                                }
                               },
                             ),
                           ],
@@ -202,8 +260,14 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('punch_in_out'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/attendance');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(context, '/attendance');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(context, '/attendance');
+                                }
                               },
                             ),
                             _buildSubMenuItem(
@@ -211,9 +275,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('punch_history'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/attendance-history');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/attendance-history');
+                                }
                               },
                             ),
                           ],
@@ -232,8 +303,14 @@ class _HRDrawerState extends State<HRDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/hr-employees');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/hr-menu') {
+                              Navigator.pushNamed(context, '/hr-employees');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/hr-employees');
+                            }
                           },
                         ),
 
@@ -250,8 +327,14 @@ class _HRDrawerState extends State<HRDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/leave-management');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/hr-menu') {
+                              Navigator.pushNamed(context, '/leave-management');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/leave-management');
+                            }
                           },
                         ),
 
@@ -270,7 +353,11 @@ class _HRDrawerState extends State<HRDrawer> {
                               title:
                                   localizations.translate('salary_information'),
                               onTap: () {
-                                Navigator.pop(context);
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute != '/hr-menu') {
+                                  Navigator.pop(context);
+                                }
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(localizations
@@ -285,7 +372,11 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('my_benefits'),
                               onTap: () {
-                                Navigator.pop(context);
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute != '/hr-menu') {
+                                  Navigator.pop(context);
+                                }
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
@@ -300,9 +391,16 @@ class _HRDrawerState extends State<HRDrawer> {
                               localizations: localizations,
                               title: localizations.translate('expense_report'),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(
-                                    context, '/expense-reports');
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/hr-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/expense-reports');
+                                }
                               },
                             ),
                           ],
@@ -323,8 +421,14 @@ class _HRDrawerState extends State<HRDrawer> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/hr-notifications');
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/hr-menu') {
+                              Navigator.pushNamed(context, '/hr-notifications');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/hr-notifications');
+                            }
                           },
                         ),
                       ],

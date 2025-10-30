@@ -33,10 +33,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     UserService.instance.initialize();
     _notificationService.addListener(_onNotificationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Open drawer on demand if route asked for it
+      // If a caller requests to open the menu, route to overlay menu
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map && args['openDrawer'] == true) {
-        _scaffoldKey.currentState?.openDrawer();
+        Navigator.pushReplacementNamed(context, '/employee-menu');
       }
       _loadLeaveBalance();
       _loadNotifications();
@@ -118,11 +118,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 ),
                 child: Row(
                   children: [
-                    // Hamburger Menu
+                    // Hamburger Menu -> open overlay Employee Menu
                     IconButton(
                       onPressed: () {
-                        print('Hamburger button pressed'); // Debug
-                        _scaffoldKey.currentState?.openDrawer();
+                        Navigator.pushReplacementNamed(
+                            context, '/employee-menu');
                       },
                       icon: const Icon(
                         Icons.menu,
