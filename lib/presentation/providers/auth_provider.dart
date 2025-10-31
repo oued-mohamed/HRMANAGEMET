@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../data/models/user_model.dart';
 import '../../data/models/company_model.dart';
 import '../../services/odoo_service.dart';
@@ -122,6 +123,16 @@ class AuthProvider extends ChangeNotifier {
         print('Login successful - AuthProvider state updated');
         print('User: ${_user?.name}');
         print('OdooService authenticated: ${_odooService.isAuthenticated}');
+
+        // Warm critical caches so manager screens open instantly (fire-and-forget).
+        Future.microtask(() async {
+          try {
+            await Future.wait([
+              _odooService.getDirectReports(useCache: false),
+              _odooService.getAllEmployeesUnderManagement(useCache: false),
+            ]);
+          } catch (_) {}
+        });
 
         return AuthResult.success(user, companies);
       } else {

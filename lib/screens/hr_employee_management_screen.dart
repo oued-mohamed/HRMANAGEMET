@@ -52,10 +52,10 @@ class _HREmployeeManagementScreenState
   }
 
   // Get weekly hours for a specific employee
-  Future<double> _getWeeklyHours(int employeeId) async {
+  Future<double> _getWeeklyHours(int employeeId, {bool useCache = true}) async {
     try {
-      final attendanceRecords =
-          await _odooService.getEmployeeAttendance(employeeId);
+      final attendanceRecords = await _odooService
+          .getEmployeeAttendance(employeeId, useCache: useCache);
 
       double totalHours = 0.0;
 
@@ -88,12 +88,13 @@ class _HREmployeeManagementScreenState
     }
   }
 
-  Future<void> _loadEmployees() async {
+  Future<void> _loadEmployees({bool forceRefresh = false}) async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       // First, get direct reports to track which employees can receive tasks
-      final directReports = await OdooService().getDirectReports();
+      final directReports =
+          await OdooService().getDirectReports(useCache: !forceRefresh);
       _directReportIds = directReports.map((e) => e['id'] as int).toSet();
 
       print('📊 Direct reports found: ${directReports.length}');
@@ -103,8 +104,8 @@ class _HREmployeeManagementScreenState
 
       if (widget.showAllEmployees) {
         // Manager mode: Get all employees under management (direct + indirect)
-        final allEmployees =
-            await OdooService().getAllEmployeesUnderManagement();
+        final allEmployees = await OdooService()
+            .getAllEmployeesUnderManagement(useCache: !forceRefresh);
         print('📊 All employees under management: ${allEmployees.length}');
         employeesList = allEmployees;
       } else {
@@ -113,13 +114,14 @@ class _HREmployeeManagementScreenState
         employeesList = directReports;
       }
 
-      // Load weekly hours for each employee
-      final Map<int, double> weeklyHours = {};
-      for (var emp in employeesList) {
-        final empId = emp['id'] as int;
-        final hours = await _getWeeklyHours(empId);
-        weeklyHours[empId] = hours;
-      }
+      // Load weekly hours for each employee in parallel for speed
+      final ids = employeesList.map((e) => e['id'] as int).toList();
+      final hoursList = await Future.wait(
+        ids.map((id) => _getWeeklyHours(id, useCache: !forceRefresh)),
+      );
+      final Map<int, double> weeklyHours = {
+        for (var i = 0; i < ids.length; i++) ids[i]: hoursList[i],
+      };
 
       if (mounted) {
         setState(() {
@@ -298,7 +300,7 @@ class _HREmployeeManagementScreenState
                         ),
                       )
                     : RefreshIndicator(
-                        onRefresh: _loadEmployees,
+                        onRefresh: () => _loadEmployees(forceRefresh: true),
                         child: _filteredEmployees.isEmpty
                             ? Center(
                                 child: Column(
@@ -473,11 +475,14 @@ class _HREmployeeManagementScreenState
                     ? SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => _showAssignTaskDialog(employee, localizations),
-                          icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
+                          onPressed: () =>
+                              _showAssignTaskDialog(employee, localizations),
+                          icon: const Icon(Icons.assignment,
+                              size: 14, color: Colors.white),
                           label: Text(
                             localizations.translate('assign_task'),
-                            style: const TextStyle(fontSize: 11, color: Colors.white),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.white),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF35BF8C),
@@ -491,7 +496,8 @@ class _HREmployeeManagementScreenState
                       )
                     : Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
                           color: const Color(0xFF000B58).withOpacity(0.05),
                           borderRadius: BorderRadius.circular(12),
@@ -552,10 +558,10 @@ class _HREmployeeManagementScreenState
 
   String _formatHours(double hours) {
     if (hours == 0) return '0h';
-    
+
     final wholeHours = hours.toInt();
     final minutes = ((hours - wholeHours) * 60).round();
-    
+
     if (minutes == 0) {
       return '${wholeHours}h';
     } else {
@@ -744,7 +750,8 @@ class _HREmployeeManagementScreenState
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF35BF8C)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
                         ),
                       ),
                     ),
@@ -769,7 +776,8 @@ class _HREmployeeManagementScreenState
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF35BF8C)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
                         ),
                       ),
                     ),
@@ -792,7 +800,8 @@ class _HREmployeeManagementScreenState
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF35BF8C)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF35BF8C)),
                         ),
                       ),
                       items: [
@@ -871,7 +880,8 @@ class _HREmployeeManagementScreenState
                           context: context,
                           initialDate: selectedDueDate,
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
                         );
                         if (date != null) {
                           setState(() {

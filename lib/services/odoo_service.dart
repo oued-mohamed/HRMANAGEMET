@@ -21,6 +21,40 @@ class OdooService {
   int? _userId;
   String? _password;
 
+  // -------- In-memory caching (per app session) --------
+  // Keep lightweight caches to avoid reloading the same datasets across screens
+  // These are cleared only on explicit refresh or re-login.
+  List<Map<String, dynamic>>? _cachedDirectReports;
+  DateTime? _cachedDirectReportsAt;
+
+  List<Map<String, dynamic>>? _cachedAllManagedEmployees;
+  DateTime? _cachedAllManagedEmployeesAt;
+
+  final Map<int, List<Map<String, dynamic>>> _employeeAttendanceCache = {};
+  final Map<int, DateTime> _employeeAttendanceCachedAt = {};
+
+  List<Map<String, dynamic>>? _cachedTeamMembers;
+  DateTime? _cachedTeamMembersAt;
+
+  List<Map<String, dynamic>>? _cachedPendingTeamLeaves;
+  DateTime? _cachedPendingTeamLeavesAt;
+
+  // Default cache lifetime
+  static const Duration _defaultCacheTtl = Duration(minutes: 5);
+
+  void clearEmployeeCaches() {
+    _cachedDirectReports = null;
+    _cachedDirectReportsAt = null;
+    _cachedAllManagedEmployees = null;
+    _cachedAllManagedEmployeesAt = null;
+    _employeeAttendanceCache.clear();
+    _employeeAttendanceCachedAt.clear();
+    _cachedTeamMembers = null;
+    _cachedTeamMembersAt = null;
+    _cachedPendingTeamLeaves = null;
+    _cachedPendingTeamLeavesAt = null;
+  }
+
   // Login method
   Future<bool> login(String username, String password) async {
     print('OdooService.login called');
@@ -2467,12 +2501,22 @@ class OdooService {
   }
 
   // Get direct reports for the current manager
-  Future<List<Map<String, dynamic>>> getDirectReports() async {
+  Future<List<Map<String, dynamic>>> getDirectReports(
+      {bool useCache = true}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      // Serve from cache if available and fresh
+      if (useCache &&
+          _cachedDirectReports != null &&
+          _cachedDirectReportsAt != null &&
+          DateTime.now().difference(_cachedDirectReportsAt!) <
+              _defaultCacheTtl) {
+        return _cachedDirectReports!;
+      }
+
       final employeeId = await getCurrentEmployeeId();
       print('🔍 Getting direct reports for manager: $employeeId');
 
@@ -2563,6 +2607,9 @@ class OdooService {
                 '⚠️ Warning: Skipping non-map item in direct reports: ${item.runtimeType} - $item');
           }
         }
+        // cache
+        _cachedDirectReports = validReports;
+        _cachedDirectReportsAt = DateTime.now();
         return validReports;
       } else {
         print(
@@ -2576,12 +2623,22 @@ class OdooService {
   }
 
   // Get all employees under Mitchell's management hierarchy (CEO view)
-  Future<List<Map<String, dynamic>>> getAllEmployeesUnderManagement() async {
+  Future<List<Map<String, dynamic>>> getAllEmployeesUnderManagement(
+      {bool useCache = true}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      // Serve from cache if available and fresh
+      if (useCache &&
+          _cachedAllManagedEmployees != null &&
+          _cachedAllManagedEmployeesAt != null &&
+          DateTime.now().difference(_cachedAllManagedEmployeesAt!) <
+              _defaultCacheTtl) {
+        return _cachedAllManagedEmployees!;
+      }
+
       // Get all employees (since Mitchell is CEO/Manager of managers)
       final employees = await _callRPC('object', 'execute_kw', [
         database,
@@ -2617,6 +2674,9 @@ class OdooService {
                 '⚠️ Warning: Skipping non-map item in all employees: ${item.runtimeType} - $item');
           }
         }
+        // cache
+        _cachedAllManagedEmployees = validEmployees;
+        _cachedAllManagedEmployeesAt = DateTime.now();
         return validEmployees;
       } else {
         print(
@@ -2921,12 +2981,20 @@ class OdooService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getTeamMembers() async {
+  Future<List<Map<String, dynamic>>> getTeamMembers(
+      {bool useCache = true}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      if (useCache &&
+          _cachedTeamMembers != null &&
+          _cachedTeamMembersAt != null &&
+          DateTime.now().difference(_cachedTeamMembersAt!) < _defaultCacheTtl) {
+        return _cachedTeamMembers!;
+      }
+
       // First get current employee ID
       final employeeId = await getCurrentEmployeeId();
       print('🔍 Manager Employee ID: $employeeId');
@@ -2971,6 +3039,8 @@ class OdooService {
                 '⚠️ Warning: Skipping non-map item in team members: ${item.runtimeType} - $item');
           }
         }
+        _cachedTeamMembers = validMembers;
+        _cachedTeamMembersAt = DateTime.now();
         return validMembers;
       } else {
         print(
@@ -2984,12 +3054,21 @@ class OdooService {
   }
 
   // Get pending leave requests for manager's approval
-  Future<List<Map<String, dynamic>>> getPendingTeamLeaveRequests() async {
+  Future<List<Map<String, dynamic>>> getPendingTeamLeaveRequests(
+      {bool useCache = true}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      if (useCache &&
+          _cachedPendingTeamLeaves != null &&
+          _cachedPendingTeamLeavesAt != null &&
+          DateTime.now().difference(_cachedPendingTeamLeavesAt!) <
+              _defaultCacheTtl) {
+        return _cachedPendingTeamLeaves!;
+      }
+
       final employeeId = await getCurrentEmployeeId();
       print('🔍 Searching pending leaves for manager: $employeeId');
 
@@ -3036,6 +3115,8 @@ class OdooService {
                 '⚠️ Warning: Skipping non-map item in requests: ${item.runtimeType} - $item');
           }
         }
+        _cachedPendingTeamLeaves = validRequests;
+        _cachedPendingTeamLeavesAt = DateTime.now();
         return validRequests;
       } else {
         print(
@@ -4276,13 +4357,22 @@ class OdooService {
   }
 
   // Get attendance records for a specific employee
-  Future<List<Map<String, dynamic>>> getEmployeeAttendance(
-      int employeeId) async {
+  Future<List<Map<String, dynamic>>> getEmployeeAttendance(int employeeId,
+      {bool useCache = true}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      // Serve from cache if available and fresh
+      if (useCache && _employeeAttendanceCache.containsKey(employeeId)) {
+        final cachedAt = _employeeAttendanceCachedAt[employeeId];
+        if (cachedAt != null &&
+            DateTime.now().difference(cachedAt) < _defaultCacheTtl) {
+          return _employeeAttendanceCache[employeeId]!;
+        }
+      }
+
       final attendanceRecords = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -4324,6 +4414,9 @@ class OdooService {
           }
         }
         print('Valid records count: ${validRecords.length}');
+        // cache
+        _employeeAttendanceCache[employeeId] = validRecords;
+        _employeeAttendanceCachedAt[employeeId] = DateTime.now();
         return validRecords;
       }
       return [];
