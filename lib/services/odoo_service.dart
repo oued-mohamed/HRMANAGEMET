@@ -1538,35 +1538,40 @@ class OdooService {
         }
       }
 
-      // If no data from report, try to get all leave types and initialize to 0
-      if (balance.isEmpty) {
-        print('📊 ⚠️ No data from report, fetching leave types...');
-        try {
-          final leaveTypes = await _callRPC('object', 'execute_kw', [
-            database,
-            _userId,
-            _password,
-            'hr.leave.type',
-            'search_read',
-            [[]],
-            {
-              'fields': ['id', 'name'],
-              'context': {'lang': 'fr_FR'}
-            }
-          ]);
+      // Always fetch all leave types and ensure they're in the balance map
+      // This ensures all types are displayed even if they have 0 balance
+      print('📊 Fetching all leave types to ensure complete display...');
+      try {
+        final leaveTypes = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.leave.type',
+          'search_read',
+          [[]],
+          {
+            'fields': ['id', 'name', 'active'],
+            'context': {'lang': 'fr_FR'}
+          }
+        ]);
 
-          if (leaveTypes is List) {
-            for (var type in leaveTypes) {
-              if (type is Map && type.containsKey('name')) {
-                String typeName = type['name'].toString();
+        if (leaveTypes is List) {
+          for (var type in leaveTypes) {
+            if (type is Map && type.containsKey('name')) {
+              String typeName = type['name'].toString();
+              // Only add if not already in balance (to preserve actual values from report)
+              // Or if it's active, always include it
+              bool isActive = type['active'] != false;
+              if (!balance.containsKey(typeName) && isActive) {
                 balance[typeName] = 0.0;
-                print('📊 Initialized $typeName = 0.0 (no report data)');
+                print(
+                    '📊 Added $typeName = 0.0 (not in report, ensuring display)');
               }
             }
           }
-        } catch (e) {
-          print('📊 ⚠️ Could not fetch leave types: $e');
         }
+      } catch (e) {
+        print('📊 ⚠️ Could not fetch leave types: $e');
       }
 
       print('📊 Final balance from report: $balance');
@@ -1575,49 +1580,26 @@ class OdooService {
     } catch (e) {
       print('📊 ❌ Error in getLeaveBalance: $e');
 
-      // Fallback to old method if report doesn't exist
-      print('📊 ⚠️ Falling back to manual calculation...');
+      // Fallback to fetching from allocations if report doesn't exist
+      print(
+          '📊 ⚠️ Report not available, fetching balance directly from allocations...');
       return await _getLeaveBalanceFallback();
     }
   }
 
-  // Fallback method using old calculation logic
+  // Fallback method - fetch balance directly from Odoo (no manual calculation)
   Future<Map<String, dynamic>> _getLeaveBalanceFallback() async {
-    print('📊 Using fallback method...');
+    print(
+        '📊 Fetching leave balance directly from hr.leave.allocation (calculated by Odoo)...');
     final employeeId = await getCurrentEmployeeId();
 
     try {
-      // Get all leave types
-      final leaveTypes = await _callRPC('object', 'execute_kw', [
+      // Get leave allocations with remaining balance calculated by Odoo
+      final allocations = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
-        'hr.leave.type',
-        'search_read',
-        [[]],
-        {
-          'fields': ['id', 'name'],
-          'context': {'lang': 'fr_FR'}
-        }
-      ]);
-
-      Map<String, double> balance = {};
-
-      if (leaveTypes is List) {
-        for (var type in leaveTypes) {
-          if (type is Map && type.containsKey('name')) {
-            String typeName = type['name'].toString();
-            balance[typeName] = 0.0;
-          }
-        }
-      }
-
-      // Get approved leaves only
-      final leaves = await _callRPC('object', 'execute_kw', [
-        database,
-        _userId,
-        _password,
-        'hr.leave',
+        'hr.leave.allocation',
         'search_read',
         [
           [
@@ -1628,20 +1610,23 @@ class OdooService {
         {
           'fields': [
             'holiday_status_id',
-            'number_of_days',
-            'request_unit_half'
+            'remaining_days', // Directly get remaining days calculated by Odoo
+            'virtual_remaining_leaves', // Alternative field
+            'number_of_days', // Total allocated days (fallback)
+            'leaves_taken' // Days taken (fallback)
           ],
           'limit': 1000,
           'context': {'lang': 'fr_FR'}
         }
       ]);
 
-      if (leaves is List) {
-        for (var leave in leaves) {
-          if (leave is Map &&
-              leave.containsKey('holiday_status_id') &&
-              leave.containsKey('number_of_days')) {
-            var statusId = leave['holiday_status_id'];
+      Map<String, double> balance = {};
+
+      if (allocations is List) {
+        for (var allocation in allocations) {
+          if (allocation is Map &&
+              allocation.containsKey('holiday_status_id')) {
+            var statusId = allocation['holiday_status_id'];
             String typeName;
 
             if (statusId is List && statusId.length >= 2) {
@@ -1652,32 +1637,90 @@ class OdooService {
               continue;
             }
 
-            double days = 0.0;
-            var numDays = leave['number_of_days'];
-            if (numDays is num) {
-              days = numDays.toDouble();
-            } else if (numDays is String) {
-              days = double.tryParse(numDays) ?? 0.0;
+            // Try to get remaining_days first (calculated by Odoo)
+            double remainingDays = 0.0;
+            if (allocation.containsKey('remaining_days')) {
+              var remDays = allocation['remaining_days'];
+              if (remDays is num) {
+                remainingDays = remDays.toDouble();
+              } else if (remDays is String) {
+                remainingDays = double.tryParse(remDays) ?? 0.0;
+              }
+            }
+            // If remaining_days not available, try virtual_remaining_leaves
+            else if (allocation.containsKey('virtual_remaining_leaves')) {
+              var virtRem = allocation['virtual_remaining_leaves'];
+              if (virtRem is num) {
+                remainingDays = virtRem.toDouble();
+              } else if (virtRem is String) {
+                remainingDays = double.tryParse(virtRem) ?? 0.0;
+              }
+            }
+            // If neither available, use number_of_days - leaves_taken (calculated by Odoo)
+            else if (allocation.containsKey('number_of_days')) {
+              double allocated = 0.0;
+              var allocDays = allocation['number_of_days'];
+              if (allocDays is num) {
+                allocated = allocDays.toDouble();
+              } else if (allocDays is String) {
+                allocated = double.tryParse(allocDays) ?? 0.0;
+              }
+
+              double taken = 0.0;
+              if (allocation.containsKey('leaves_taken')) {
+                var takenDays = allocation['leaves_taken'];
+                if (takenDays is num) {
+                  taken = takenDays.toDouble();
+                } else if (takenDays is String) {
+                  taken = double.tryParse(takenDays) ?? 0.0;
+                }
+              }
+
+              remainingDays = allocated - taken;
             }
 
-            final isHalfDay = leave['request_unit_half'] == true;
-            final typeNameLower = typeName.toLowerCase();
-            final isHalfDayType = typeNameLower.contains('demi') ||
-                typeNameLower.contains('half');
-
-            if ((isHalfDay || isHalfDayType) && days == 1.0) {
-              days = 0.5;
-            }
-
-            if (!balance.containsKey(typeName)) {
-              balance[typeName] = 0.0;
-            }
-
-            balance[typeName] = (balance[typeName] ?? 0) - days;
+            balance[typeName] = remainingDays;
+            print(
+                '📊 Allocation: $typeName = $remainingDays days (fetched from Odoo, not calculated)');
           }
         }
       }
 
+      // Also get all active leave types to ensure they're all displayed
+      try {
+        final leaveTypes = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.leave.type',
+          'search_read',
+          [[]],
+          {
+            'fields': ['id', 'name', 'active'],
+            'context': {'lang': 'fr_FR'}
+          }
+        ]);
+
+        if (leaveTypes is List) {
+          for (var type in leaveTypes) {
+            if (type is Map && type.containsKey('name')) {
+              bool isActive = type['active'] != false;
+              if (isActive) {
+                String typeName = type['name'].toString();
+                // Only add if not already in balance (preserve values from allocations)
+                if (!balance.containsKey(typeName)) {
+                  balance[typeName] = 0.0;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('📊 ⚠️ Could not fetch leave types: $e');
+      }
+
+      print(
+          '📊 Final balance (fetched from Odoo, not manually calculated): $balance');
       return balance;
     } catch (e) {
       print('📊 ❌ Error in fallback: $e');

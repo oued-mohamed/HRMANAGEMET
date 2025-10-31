@@ -27,6 +27,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     super.initState();
     _checkLocationPermission();
     _checkLastAttendance();
+    // Start periodic location status check
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startLocationStatusListener();
+    });
+  }
+
+  @override
+  void dispose() {
+    // Cancel any ongoing listeners if needed
+    super.dispose();
+  }
+
+  void _startLocationStatusListener() {
+    // Check location status every 3 seconds to update UI if user changes it
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _checkLocationPermission();
+        _startLocationStatusListener(); // Continue checking
+      }
+    });
   }
 
   Future<void> _checkLocationPermission() async {
@@ -39,10 +59,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
 
     try {
-      final status = await Permission.location.status;
+      // Check both permission status and location service status
+      final permissionStatus = await Permission.location.status;
+      final isLocationServiceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      // Location is enabled only if BOTH permission is granted AND location services are enabled
+      final isEnabled = permissionStatus.isGranted && isLocationServiceEnabled;
+
       setState(() {
-        _locationEnabled = status.isGranted;
+        _locationEnabled = isEnabled;
       });
+
+      print(
+          'Location permission: ${permissionStatus.isGranted}, Location service enabled: $isLocationServiceEnabled, Final status: $isEnabled');
     } catch (e) {
       print('Error checking location permission: $e');
       setState(() {
@@ -52,13 +82,125 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _requestLocationPermission() async {
+    // First request permission
     final status = await Permission.location.request();
+
     if (status.isGranted) {
-      setState(() {
-        _locationEnabled = true;
-      });
+      // Permission granted - now check if location services are actually enabled
+      final isLocationServiceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!isLocationServiceEnabled) {
+        // Location services are disabled - ask user before opening settings
+        if (mounted) {
+          final shouldOpenSettings = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              final localizations = AppLocalizations.of(context);
+              return AlertDialog(
+                title: Text(
+                  localizations.translate('location_service_disabled'),
+                ),
+                content: const Text(
+                  'Les services de localisation sont désactivés. Voulez-vous ouvrir les paramètres pour les activer?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(localizations.translate('cancel')),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF35BF8C),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Ouvrir les paramètres'),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (shouldOpenSettings == true) {
+            // User confirmed - open location settings
+            final opened = await Geolocator.openLocationSettings();
+            if (!opened) {
+              // Fallback: open app settings
+              await openAppSettings();
+            }
+
+            // Re-check status after user returns (check every second for 10 seconds)
+            int checkCount = 0;
+            final maxChecks = 10;
+            Future.delayed(const Duration(seconds: 1), () {
+              void checkPeriodically() {
+                if (mounted && checkCount < maxChecks) {
+                  _checkLocationPermission();
+                  _getCurrentLocation();
+
+                  if (_locationEnabled) {
+                    // Success! Show confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          AppLocalizations.of(context)
+                              .translate('location_enabled'),
+                        ),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } else {
+                    // Check again
+                    checkCount++;
+                    Future.delayed(
+                        const Duration(seconds: 1), checkPeriodically);
+                  }
+                }
+              }
+
+              checkPeriodically();
+            });
+          }
+        }
+      } else {
+        // Location services already enabled - verify we can get location
+        await _getCurrentLocation();
+        await _checkLocationPermission();
+
+        if (_locationEnabled && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).translate('location_enabled'),
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
     } else if (status.isPermanentlyDenied) {
+      // Permission permanently denied
       _showPermissionDialog();
+    } else {
+      // Permission denied
+      setState(() {
+        _locationEnabled = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)
+                  .translate('location_permission_denied'),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -173,20 +315,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context)
-                  .translate('location_services_disabled')),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
 
       LocationPermission permission = await Geolocator.checkPermission();
+
+      // Update location enabled status based on BOTH service status AND permission
+      final permissionGranted = permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever;
+      setState(() {
+        _locationEnabled = serviceEnabled && permissionGranted;
+      });
+
+      if (!serviceEnabled) {
+        // Services disabled - return without showing message
+        return;
+      }
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
@@ -239,17 +381,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    if (_currentPosition == null) {
-      await _getCurrentLocation();
-    }
-
-    if (_currentPosition == null && !kIsWeb) {
+    // Check location status before allowing punch in
+    await _checkLocationPermission();
+    if (!_locationEnabled) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
                 AppLocalizations.of(context).translate('location_required')),
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_currentPosition == null) {
+      await _getCurrentLocation();
+    }
+
+    // Re-check location status after getting location
+    await _checkLocationPermission();
+    if (!_locationEnabled || _currentPosition == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                AppLocalizations.of(context).translate('location_required')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -430,17 +591,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    if (_currentPosition == null) {
-      await _getCurrentLocation();
-    }
-
-    if (_currentPosition == null && !kIsWeb) {
+    // Check location status before allowing punch out
+    await _checkLocationPermission();
+    if (!_locationEnabled) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
                 AppLocalizations.of(context).translate('location_required')),
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_currentPosition == null) {
+      await _getCurrentLocation();
+    }
+
+    // Re-check location status after getting location
+    await _checkLocationPermission();
+    if (!_locationEnabled || _currentPosition == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                AppLocalizations.of(context).translate('location_required')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -590,7 +770,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           icon: Icons.login,
                           label: localizations.translate('punch_in'),
                           color: Colors.green,
-                          onPressed: _isLoading ? null : _punchIn,
+                          onPressed: (_isLoading || !_locationEnabled)
+                              ? null
+                              : _punchIn,
                           isLoading: _isLoading,
                         ),
 
@@ -602,7 +784,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           icon: Icons.logout,
                           label: localizations.translate('punch_out'),
                           color: Colors.red,
-                          onPressed: _isLoading ? null : _punchOut,
+                          onPressed: (_isLoading || !_locationEnabled)
+                              ? null
+                              : _punchOut,
                           isLoading: _isLoading,
                         ),
 

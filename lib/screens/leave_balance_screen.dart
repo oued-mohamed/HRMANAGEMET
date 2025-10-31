@@ -221,36 +221,6 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                                       color: Colors.grey[600],
                                     ),
                                   ),
-                                  SizedBox(height: isSmallScreen ? 6 : 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[50],
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: Colors.blue[200]!, width: 1),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.info_outline,
-                                            size: 14, color: Colors.blue[700]),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            'Solde basé sur les congés approuvés uniquement',
-                                            style: TextStyle(
-                                              fontSize: isSmallScreen ? 10 : 12,
-                                              color: Colors.blue[900],
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -349,8 +319,8 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                       return Expanded(
                         child: Container(
                           height: isSmallScreen
-                              ? 150
-                              : 170, // Increased height to prevent overflow
+                              ? 110
+                              : 125, // Reduced height after removing icons
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
@@ -369,7 +339,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                       // Empty cell
                       return Expanded(
                         child: Container(
-                          height: isSmallScreen ? 150 : 170,
+                          height: isSmallScreen ? 110 : 125,
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
@@ -415,28 +385,15 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top spacing
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            // Icon at top
-            Container(
-              padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF000B58).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                _getIconForLeaveType(leaveType),
-                color: const Color(0xFF000B58),
-                size: isSmallScreen ? 20 : 24,
-              ),
-            ),
-            // Leave Type Name - centered between icon and badge
+            // Top spacing - reduced after removing icon
+            SizedBox(height: isSmallScreen ? 8 : 10),
+            // Leave Type Name - centered
             Expanded(
               child: Center(
                 child: Text(
                   leaveType,
                   style: TextStyle(
-                    fontSize: isSmallScreen ? 10 : 12,
+                    fontSize: isSmallScreen ? 11 : 13,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -446,6 +403,8 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                 ),
               ),
             ),
+            // Bottom spacing before badge
+            SizedBox(height: isSmallScreen ? 4 : 6),
             // Days Count Badge at bottom
             Container(
               padding: EdgeInsets.symmetric(
@@ -483,8 +442,8 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                 ],
               ),
             ),
-            // Bottom spacing
-            SizedBox(height: isSmallScreen ? 12 : 16),
+            // Bottom spacing - reduced after removing icon
+            SizedBox(height: isSmallScreen ? 6 : 8),
           ],
         ),
       ),

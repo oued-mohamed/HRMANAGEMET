@@ -324,6 +324,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     AppLocalizations localizations, {
     VoidCallback? onTap,
   }) {
+    // Detect screen size for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -346,13 +350,14 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon at the top-left (like the old version)
+                // Icon at the top-left
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(10),
@@ -360,36 +365,45 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   child: Icon(
                     icon,
                     color: Colors.white,
-                    size: 26,
+                    size: isSmallScreen ? 20 : 26,
                   ),
                 ),
-                // Fixed spacing to ensure consistent positioning
-                const SizedBox(height: 12),
-                // Value and title at the bottom
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                // Flexible spacing
+                SizedBox(height: isSmallScreen ? 8 : 12),
+                // Value and title - use Expanded to prevent overflow
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 24 : 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
-                        height: 1.1,
+                      SizedBox(height: isSmallScreen ? 4 : 6),
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 10 : 12,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

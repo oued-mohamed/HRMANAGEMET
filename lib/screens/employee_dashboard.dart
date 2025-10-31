@@ -399,7 +399,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       onTap: onTap,
       child: Container(
         height: 180,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
@@ -413,16 +413,19 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.max,
           children: [
             Text(
               title,
               style: TextStyle(
                 color: textColor,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             if (subtitle != null)
               Text(
                 subtitle,
@@ -430,8 +433,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   color: textColor.withOpacity(0.8),
                   fontSize: 12,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             if (value != null)
               Text(
                 value,
@@ -440,11 +445,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             const Spacer(),
             Expanded(
               flex: 2,
-              child: chart,
+              child: SizedBox(
+                height: 45,
+                child: chart,
+              ),
             ),
           ],
         ),
