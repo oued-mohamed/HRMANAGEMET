@@ -214,23 +214,6 @@ class _HRDrawerState extends State<HRDrawer> {
                             _buildSubMenuItem(
                               context: context,
                               localizations: localizations,
-                              title:
-                                  localizations.translate('unexpected_absence'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute != '/hr-menu') {
-                                  Navigator.pop(context);
-                                }
-                                _showSnackBar(
-                                    context,
-                                    localizations
-                                        .translate('unexpected_absence'));
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
                               title: localizations.translate('calendar'),
                               onTap: () {
                                 final currentRoute =
@@ -552,16 +535,6 @@ class _HRDrawerState extends State<HRDrawer> {
         ),
       ),
       onTap: onTap,
-    );
-  }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF35BF8C),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 }

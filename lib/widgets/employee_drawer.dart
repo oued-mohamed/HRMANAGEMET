@@ -224,21 +224,7 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                                 Navigator.pushNamed(context, '/leave-balance');
                               },
                             ),
-                            // 3) Déclarer une absence imprévue
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations
-                                  .translate('report_unexpected_absence'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _showSnackBar(
-                                    context,
-                                    localizations.translate(
-                                        'report_unexpected_absence'));
-                              },
-                            ),
-                            // 4) Calendrier des congés (last)
+                            // 3) Calendrier des congés (last)
                             _buildSubMenuItem(
                               context: context,
                               localizations: localizations,

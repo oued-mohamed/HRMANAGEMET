@@ -216,19 +216,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                             _buildSubMenuItem(
                               context: context,
                               localizations: localizations,
-                              title:
-                                  localizations.translate('unexpected_absence'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _showSnackBar(
-                                    context,
-                                    localizations
-                                        .translate('unexpected_absence'));
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
                               title: localizations.translate('calendar'),
                               onTap: () {
                                 final currentRoute =
@@ -404,26 +391,29 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                           ],
                         ),
 
-                        const Divider(color: Colors.white30, thickness: 1),
-
-                        // Déconnexion
-                        ListTile(
-                          leading: const Icon(
-                            Icons.logout,
-                            color: Colors.red,
+                        // Footer - Logout
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              const Divider(color: Colors.white30),
+                              ListTile(
+                                leading: const Icon(Icons.logout,
+                                    color: Colors.white70),
+                                title: Text(
+                                  localizations.translate('logout'),
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                                onTap: () {
+                                  Navigator.pushNamedAndRemoveUntil(
+                                    context,
+                                    '/login',
+                                    (route) => false,
+                                  );
+                                },
+                              ),
+                            ],
                           ),
-                          title: Text(
-                            localizations.translate('logout'),
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushReplacementNamed(context, '/login');
-                          },
                         ),
                       ],
                     ),
@@ -554,16 +544,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
         ),
       ),
       onTap: onTap,
-    );
-  }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF35BF8C),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 }
