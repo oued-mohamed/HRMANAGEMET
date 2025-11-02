@@ -36,6 +36,7 @@ import 'screens/expense_reports_screen.dart';
 import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/odoo_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -112,13 +113,31 @@ class HRManagementApp extends StatelessWidget {
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),
-              '/employee-tasks': (context) => EmployeeTasksScreen(
-                    employee: Employee(
-                      id: 1, // This should be the current employee ID
-                      name: 'Employee Name',
-                      email: 'employee@example.com',
-                      isActive: true,
-                    ),
+              '/employee-tasks': (context) => FutureBuilder<int>(
+                    future: OdooService().getCurrentEmployeeId(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return Scaffold(
+                          body: Center(
+                            child: Text(
+                                'Erreur: Impossible de récupérer l\'employé connecté'),
+                          ),
+                        );
+                      }
+                      return EmployeeTasksScreen(
+                        employee: Employee(
+                          id: snapshot.data!,
+                          name: 'Current Employee',
+                          email: '',
+                          isActive: true,
+                        ),
+                      );
+                    },
                   ),
               '/hr-notifications': (context) => const HRNotificationsScreen(),
               '/hr-sent-notifications': (context) =>

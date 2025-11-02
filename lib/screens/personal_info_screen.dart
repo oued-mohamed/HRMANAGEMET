@@ -357,7 +357,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToMenu(context),
+          onPressed: () => NavigationHelpers.backToPrevious(context),
         ),
         title: Text(
           localizations.translate('personal_employment_info'),

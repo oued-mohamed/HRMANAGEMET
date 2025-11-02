@@ -880,7 +880,7 @@ class OdooService {
     try {
       print('Fetching tasks for employee $employeeId');
 
-      // First get the user ID associated with the employee
+      // First get the user ID associated with the employee and their manager
       final employeeUser = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -889,7 +889,7 @@ class OdooService {
         'read',
         [employeeId],
         {
-          'fields': ['user_id']
+          'fields': ['user_id', 'parent_id']
         },
       ]);
 
@@ -901,24 +901,92 @@ class OdooService {
       }
 
       final userId = employeeUser[0]['user_id'][0];
-      print('Found user ID: $userId for employee $employeeId');
+      print(
+          '👤 Found user ID: $userId (type: ${userId.runtimeType}) for employee $employeeId');
+      print('🔍 This is the user ID we will filter tasks by');
 
-      // Search and read tasks assigned to this user
+      // Additional safety check: verify this employee's user_id matches the logged-in user
+      // If they don't match and we're in employee section, there might be an issue
+      if (_userId != null) {
+        final currentLoggedInUserId = _userId;
+        if (userId != currentLoggedInUserId) {
+          print(
+              '⚠️ WARNING: Requested employee user_id ($userId) differs from logged-in user_id ($currentLoggedInUserId)');
+          print(
+              '⚠️ This is OK if manager is viewing employee tasks, but in employee section this should match!');
+        } else {
+          print(
+              '✅ Employee user_id matches logged-in user_id - this is correct for employee section');
+        }
+      }
+
+      // Get the manager's user ID (if employee has a parent/manager)
+      int? managerUserId;
+      if (employeeUser[0]['parent_id'] != null &&
+          employeeUser[0]['parent_id'] != false &&
+          employeeUser[0]['parent_id'] is List &&
+          (employeeUser[0]['parent_id'] as List).isNotEmpty) {
+        final managerId = (employeeUser[0]['parent_id'] as List)[0];
+        print('Employee has manager with ID: $managerId');
+
+        // Get manager's user ID
+        try {
+          final managerData = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'hr.employee',
+            'read',
+            [managerId],
+            {
+              'fields': ['user_id']
+            },
+          ]);
+
+          if (managerData is List &&
+              managerData.isNotEmpty &&
+              managerData[0]['user_id'] != false &&
+              managerData[0]['user_id'] is List &&
+              (managerData[0]['user_id'] as List).isNotEmpty) {
+            managerUserId = (managerData[0]['user_id'] as List)[0];
+            print('Found manager user ID: $managerUserId');
+          }
+        } catch (e) {
+          print('Error getting manager user ID: $e');
+        }
+      }
+
+      // Build search domain: tasks assigned to this user
+      // Match Odoo "Ouvert" (Open) filter behavior
+      // Odoo "Ouvert" typically means: active tasks that are not in "Done" or "Cancelled" stages
+      List<dynamic> searchDomain = [
+        [
+          'user_ids',
+          'in',
+          [userId]
+        ],
+        ['active', '=', true], // Only active tasks (like Odoo default)
+      ];
+
+      // Optional: Filter by manager if you want only manager-created tasks
+      // Uncomment if you want ONLY tasks created by manager:
+      // if (managerUserId != null) {
+      //   searchDomain.add(['create_uid', '=', managerUserId]);
+      //   print('Filtering: only tasks created by manager user $managerUserId');
+      // }
+
+      print('🔍 Fetching tasks with domain: $searchDomain');
+      print(
+          '📋 This should match Odoo "Ouvert" (Open) filter: active tasks assigned to user $userId');
+
+      // Search and read tasks assigned to this user and created by manager
       final tasks = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
         'project.task',
         'search_read',
-        [
-          [
-            [
-              'user_ids',
-              'in',
-              [userId]
-            ]
-          ]
-        ],
+        [searchDomain],
         {
           'fields': [
             'id',
@@ -934,42 +1002,168 @@ class OdooService {
             'partner_id',
             'personal_stage_id',
             'personal_stage_type_id',
-            'activity_user_id'
+            'activity_user_id',
+            'create_uid',
+            'active' // Add active field to check task status
           ],
-          'order': 'create_date desc',
+          // Match Odoo default ordering: priority desc, sequence, date_deadline asc, id desc
+          // But we prioritize new tasks by create_date desc
+          'order':
+              'create_date desc, priority desc, date_deadline asc, id desc',
           'limit': 50,
-          'context': {'lang': 'fr_FR'}
+          'context': {
+            'lang': 'fr_FR',
+            // active_test: false would include inactive tasks, but we're filtering active=true in domain
+            // This matches Odoo "Ouvert" filter behavior
+          }
         }
       ]);
 
-      print(
-          'Found ${tasks is List ? tasks.length : 0} tasks for employee $employeeId');
+      final tasksCount = tasks is List ? tasks.length : 0;
+      print('📊 Found $tasksCount tasks for employee $employeeId');
+
+      // Debug: Print task details to understand what we're getting
+      if (tasks is List && tasks.isNotEmpty) {
+        print('📋 All tasks details (showing first 10):');
+        for (var i = 0; i < (tasks.length > 10 ? 10 : tasks.length); i++) {
+          final task = tasks[i];
+          if (task is Map) {
+            final stageInfo = task['stage_id'];
+            final stageName = stageInfo is List && stageInfo.length > 1
+                ? stageInfo[1]
+                : stageInfo;
+            // Extract user IDs from the many2many field
+            List<dynamic> assignedUserIds = [];
+            if (task['user_ids'] is List) {
+              assignedUserIds = task['user_ids'] as List;
+            }
+
+            print(
+                '  Task ${i + 1}: "${task['name']}" - Assigned to user_ids: $assignedUserIds (current user: $userId) - Stage: $stageName');
+          }
+        }
+        print('📊 Total tasks retrieved from Odoo: ${tasks.length}');
+      }
 
       if (tasks is List) {
         final List<Map<String, dynamic>> validTasks = [];
         for (var item in tasks) {
           if (item is Map<String, dynamic>) {
-            // Transform project.task data to match our expected format
-            validTasks.add({
-              'id': item['id'],
-              'name': item['name'],
-              'description': item['description'] ?? '',
-              'priority': item['priority'],
-              'date_deadline': item['date_deadline'],
-              'create_date': item['create_date'],
-              'write_date': item['write_date'],
-              'stage_id': item['stage_id'],
-              'user_ids': item['user_ids'],
-              'project_id': item['project_id'],
-              'partner_id': item['partner_id'],
-              'personal_stage_id': item['personal_stage_id'],
-              'personal_stage_type_id': item['personal_stage_type_id'],
-              'activity_user_id': item['activity_user_id'],
-            });
+            // CRITICAL: Verify that this task is actually assigned to the current user
+            final taskUserIds = item['user_ids'];
+            bool isAssignedToCurrentUser = false;
+
+            // Convert userId to int for comparison
+            int targetUserId;
+            if (userId is int) {
+              targetUserId = userId;
+            } else if (userId is String) {
+              targetUserId = int.tryParse(userId) ?? -1;
+            } else {
+              targetUserId = int.tryParse(userId.toString()) ?? -1;
+            }
+
+            if (targetUserId == -1) {
+              print(
+                  '  ⚠️ ERROR: Cannot parse userId: $userId (type: ${userId.runtimeType})');
+              continue;
+            }
+
+            if (taskUserIds != null && taskUserIds != false) {
+              // user_ids is a many2many field, it returns a list of user IDs
+              if (taskUserIds is List) {
+                for (var uid in taskUserIds) {
+                  // Convert uid to int for comparison
+                  int uidInt;
+                  if (uid is int) {
+                    uidInt = uid;
+                  } else if (uid is String) {
+                    uidInt = int.tryParse(uid) ?? -1;
+                  } else if (uid is List && uid.isNotEmpty) {
+                    // Sometimes Odoo returns [id, name] format
+                    uidInt = uid[0] is int
+                        ? uid[0]
+                        : int.tryParse(uid[0].toString()) ?? -1;
+                  } else {
+                    uidInt = int.tryParse(uid.toString()) ?? -1;
+                  }
+
+                  if (uidInt == targetUserId) {
+                    isAssignedToCurrentUser = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (!isAssignedToCurrentUser) {
+              print(
+                  '  ⏭️ Skipping task "${item['name']}" - NOT assigned to user $targetUserId (task user_ids: $taskUserIds, type: ${taskUserIds.runtimeType})');
+              continue; // Skip tasks not assigned to current user
+            }
+
+            print(
+                '  ✅ Task "${item['name']}" is assigned to user $targetUserId');
+
+            // Filter out tasks that are in "Done" or "Cancelled" stages to match Odoo "Ouvert" filter
+            final stageId = item['stage_id'];
+            bool isCompletedOrCancelled = false;
+
+            if (stageId is List && stageId.length > 1) {
+              final stageName = stageId[1].toString().toLowerCase();
+              if (stageName.contains('done') ||
+                  stageName.contains('fait') ||
+                  stageName.contains('terminé') ||
+                  stageName.contains('cancelled') ||
+                  stageName.contains('annulé')) {
+                isCompletedOrCancelled = true;
+                print(
+                    '  ⏭️ Skipping completed/cancelled task: ${item['name']} (Stage: $stageName)');
+              }
+            }
+
+            // Only include tasks that are assigned to current user AND not completed/cancelled
+            if (!isCompletedOrCancelled) {
+              // Transform project.task data to match our expected format
+              validTasks.add({
+                'id': item['id'],
+                'name': item['name'],
+                'description': item['description'] ?? '',
+                'priority': item['priority'],
+                'date_deadline': item['date_deadline'],
+                'create_date': item['create_date'],
+                'write_date': item['write_date'],
+                'stage_id': item['stage_id'],
+                'user_ids': item['user_ids'],
+                'project_id': item['project_id'],
+                'partner_id': item['partner_id'],
+                'personal_stage_id': item['personal_stage_id'],
+                'personal_stage_type_id': item['personal_stage_type_id'] ??
+                    item[
+                        'stage_id'], // Fallback to stage_id if personal_stage_type_id is null/false
+                'activity_user_id': item['activity_user_id'],
+                'create_uid': item['create_uid'],
+              });
+            } // End of if (!isCompletedOrCancelled)
           }
         }
+        // Sort by create_date descending (newest first) - double check even though Odoo should do it
+        validTasks.sort((a, b) {
+          final dateA = a['create_date'];
+          final dateB = b['create_date'];
+          if (dateA == null || dateB == null) return 0;
+          try {
+            final dateTimeA = DateTime.parse(dateA.toString());
+            final dateTimeB = DateTime.parse(dateB.toString());
+            return dateTimeB.compareTo(dateTimeA); // Descending: newest first
+          } catch (e) {
+            return 0;
+          }
+        });
         print(
-            'Processed ${validTasks.length} valid tasks for employee $employeeId');
+            '✅ Processed ${validTasks.length} tasks assigned to user $userId (filtered: only tasks where user is in user_ids, excluding completed/cancelled)');
+        print(
+            '📊 Summary: ${tasks.length} total from Odoo → ${validTasks.length} valid tasks assigned to current user');
         return validTasks;
       } else {
         print('Unexpected response format: $tasks');
@@ -1019,22 +1213,44 @@ class OdooService {
 
       print('Processed ${validStages.length} valid stages for update');
 
-      // Find the stage ID by name
+      // Find the stage ID by name - try exact match first, then contains
       int? stageId;
+      final newStageLower = newStage.toLowerCase().trim();
+
+      // First try exact match
       for (var stage in validStages) {
-        print('Checking stage: ${stage['name']} (ID: ${stage['id']})');
-        if (stage['name']
-            .toString()
-            .toLowerCase()
-            .contains(newStage.toLowerCase())) {
-          stageId = stage['id'];
-          print('Found matching stage: ${stage['name']} with ID: $stageId');
+        final stageName = stage['name'].toString().toLowerCase().trim();
+        if (stageName == newStageLower) {
+          stageId = stage['id'] is int
+              ? stage['id'] as int
+              : int.tryParse(stage['id'].toString());
+          print(
+              'Found exact matching stage: ${stage['name']} with ID: $stageId');
           break;
         }
       }
 
+      // If no exact match, try contains
       if (stageId == null) {
-        print('Stage "$newStage" not found');
+        for (var stage in validStages) {
+          final stageName = stage['name'].toString().toLowerCase().trim();
+          print('Checking stage: ${stage['name']} (ID: ${stage['id']})');
+          if (stageName.contains(newStageLower) ||
+              newStageLower.contains(stageName)) {
+            stageId = stage['id'] is int
+                ? stage['id'] as int
+                : int.tryParse(stage['id'].toString());
+            print(
+                'Found matching stage (contains): ${stage['name']} with ID: $stageId');
+            break;
+          }
+        }
+      }
+
+      if (stageId == null) {
+        print('❌ Stage "$newStage" not found in available stages');
+        print(
+            'Available stages: ${validStages.map((s) => s['name']).toList()}');
         return false;
       }
 

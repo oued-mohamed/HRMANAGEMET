@@ -169,7 +169,8 @@ class _EmployeeNotificationsScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () => NavigationHelpers.backToMenu(context),
+                        onPressed: () =>
+                            NavigationHelpers.backToPrevious(context),
                         icon: const Icon(Icons.arrow_back,
                             color: Colors.white, size: 26),
                       ),
@@ -589,7 +590,8 @@ class _EmployeeNotificationsScreenState
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => NavigationHelpers.backToMenu(context),
+                      onPressed: () =>
+                          NavigationHelpers.backToPrevious(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Color(0xFF35BF8C)),

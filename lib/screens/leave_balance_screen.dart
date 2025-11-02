@@ -61,7 +61,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToMenu(context),
+          onPressed: () => NavigationHelpers.backToPrevious(context),
         ),
         title: const Text('Solde de mes congés'),
         backgroundColor: const Color(0xFF000B58),

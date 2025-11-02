@@ -25,6 +25,23 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
   int _unreadCount = 0;
   bool _isLoadingNotifications = true;
+  double _weeklyHours = 0.0;
+  bool _isLoadingWeeklyHours = true;
+
+  // Get current week (Monday to Saturday)
+  DateTime get _weekStart {
+    final now = DateTime.now();
+    final weekday = now.weekday; // 1 = Monday, 7 = Sunday
+    // Go back to Monday
+    return now.subtract(Duration(days: weekday - 1));
+  }
+
+  DateTime get _weekEnd {
+    final now = DateTime.now();
+    final weekday = now.weekday;
+    // Go forward to Saturday (add 5 days from Monday)
+    return now.add(Duration(days: 7 - weekday));
+  }
 
   @override
   void initState() {
@@ -40,6 +57,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       }
       _loadLeaveBalance();
       _loadNotifications();
+      _loadWeeklyHours();
     });
   }
 
@@ -80,6 +98,77 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       setState(() {
         _isLoadingNotifications = false;
       });
+    }
+  }
+
+  // Get weekly hours for the current employee
+  Future<void> _loadWeeklyHours() async {
+    setState(() => _isLoadingWeeklyHours = true);
+    try {
+      final employeeId = await _odooService.getCurrentEmployeeId();
+      final attendanceRecords =
+          await _odooService.getEmployeeAttendance(employeeId, useCache: true);
+
+      double totalHours = 0.0;
+
+      for (var record in attendanceRecords) {
+        final checkIn = record['check_in'];
+        if (checkIn != null) {
+          try {
+            final checkInDate = DateTime.parse(checkIn.toString());
+            // Check if this record is within the current week (Monday to Saturday)
+            if (checkInDate
+                    .isAfter(_weekStart.subtract(const Duration(days: 1))) &&
+                checkInDate.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+              final workedHours = record['worked_hours'];
+              if (workedHours != null) {
+                double hours = 0.0;
+                if (workedHours is double) {
+                  hours = workedHours;
+                } else if (workedHours is num) {
+                  hours = workedHours.toDouble();
+                } else if (workedHours is String) {
+                  hours = double.tryParse(workedHours) ?? 0.0;
+                }
+                if (hours > 0) {
+                  totalHours += hours;
+                }
+              }
+            }
+          } catch (e) {
+            // Skip invalid dates
+            print('Error parsing date in weekly hours: $e');
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _weeklyHours = totalHours;
+          _isLoadingWeeklyHours = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading weekly hours: $e');
+      if (mounted) {
+        setState(() {
+          _weeklyHours = 0.0;
+          _isLoadingWeeklyHours = false;
+        });
+      }
+    }
+  }
+
+  String _formatHours(double hours) {
+    if (hours == 0) return '0h';
+
+    final wholeHours = hours.toInt();
+    final minutes = ((hours - wholeHours) * 60).round();
+
+    if (minutes == 0) {
+      return '${wholeHours}h';
+    } else {
+      return '${wholeHours}h ${minutes}m';
     }
   }
 
@@ -251,8 +340,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           Expanded(
                             child: _buildMetricCard(
                               title: localizations.translate('working_period'),
-                              value: '8h',
-                              subtitle: localizations.translate('today'),
+                              value: _isLoadingWeeklyHours
+                                  ? '...'
+                                  : _formatHours(_weeklyHours),
+                              subtitle:
+                                  localizations.translate('approved_this_week'),
                               color: Colors.white,
                               textColor: Colors.black87,
                               chart: _buildLineChart(),

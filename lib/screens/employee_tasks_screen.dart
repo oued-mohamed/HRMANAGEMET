@@ -70,6 +70,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
 
   Future<void> _updateTaskStatus(int taskId, String newStatus) async {
     try {
+      print('Updating task $taskId with status: $newStatus');
       final success = await _odooService.updateTaskStage(
         taskId: taskId,
         newStage: newStatus,
@@ -82,16 +83,22 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Reload tasks without cache to get fresh data
+        await Future.delayed(Duration(
+            milliseconds: 500)); // Small delay to ensure Odoo has updated
         _loadTasks(); // Reload tasks
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la mise à jour'),
+            content: Text(
+                'Erreur: Le statut "$newStatus" n\'a pas été trouvé ou la mise à jour a échoué'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
           ),
         );
       }
     } catch (e) {
+      print('Error updating task status: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur: $e'),
@@ -146,11 +153,36 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
   }
 
   String _getStageName(dynamic stage) {
-    if (stage == null) return 'Non défini';
+    if (stage == null || stage == false) return 'Non défini';
     if (stage is List && stage.isNotEmpty) {
       return stage[1].toString(); // Stage name is usually the second element
     }
+    if (stage is bool && !stage) return 'Non défini';
     return stage.toString();
+  }
+
+  // Get stage name from task, with fallback to stage_id if personal_stage_type_id is invalid
+  String _getTaskStageName(Map<String, dynamic> task) {
+    final personalStage = task['personal_stage_type_id'];
+    final stageId = task['stage_id'];
+
+    // Try personal_stage_type_id first
+    if (personalStage != null && personalStage != false) {
+      final stageName = _getStageName(personalStage);
+      if (stageName != 'Non défini') {
+        return stageName;
+      }
+    }
+
+    // Fallback to stage_id
+    if (stageId != null && stageId != false) {
+      final stageName = _getStageName(stageId);
+      if (stageName != 'Non défini') {
+        return stageName;
+      }
+    }
+
+    return 'Non défini';
   }
 
   @override
@@ -369,7 +401,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                                       ),
                                       SizedBox(width: 4),
                                       Text(
-                                        'Statut: ${_getStageName(task['personal_stage_type_id'])}',
+                                        'Statut: ${_getTaskStageName(task)}',
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                           fontSize: 12,
@@ -439,8 +471,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                 ),
               _buildDetailRow('Priorité', _getPriorityText(task['priority'])),
               _buildDetailRow('Échéance', _formatDate(task['date_deadline'])),
-              _buildDetailRow(
-                  'Statut', _getStageName(task['personal_stage_type_id'])),
+              _buildDetailRow('Statut', _getTaskStageName(task)),
               _buildDetailRow('Créée le', _formatDate(task['create_date'])),
               if (task['write_date'] != null)
                 _buildDetailRow('Modifiée le', _formatDate(task['write_date'])),

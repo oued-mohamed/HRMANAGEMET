@@ -196,16 +196,6 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                     padding: const EdgeInsets.only(bottom: 16),
                                     child: Row(
                                       children: [
-                                        Container(
-                                          width: 4,
-                                          height: 24,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(2),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
                                         Text(
                                           localizations
                                               .translate('team_management'),

@@ -23,7 +23,7 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToMenu(context),
+          onPressed: () => NavigationHelpers.backToPrevious(context),
         ),
         title: Text(localizations.translate('working_time')),
         backgroundColor: const Color(0xFF000B58),
