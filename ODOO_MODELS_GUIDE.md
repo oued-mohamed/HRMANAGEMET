@@ -1,354 +1,235 @@
-# 📋 Odoo Models Implementation Guide
+# 📋 Odoo Models Used in the Application
 
-## **Required Odoo Models for Manager-Employee Task Management**
+## **Actual Odoo Models in Use**
 
-To implement the complete task management system for the **Manager-Employee relationship**, you need to create these models in your Odoo backend:
+This document describes the **exact Odoo models** that are currently used in the Flutter application. The app uses **standard Odoo models** that come with Odoo by default - **NO custom models are required**.
 
 ---
 
-## **1. Manager Task Model (`manager.task`)**
+## **1. Task Management: `project.task`**
 
-Create a new Python file: `addons/manager_task/models/manager_task.py`
+### **Model Used:**
+- **Name**: `project.task` (Standard Odoo Project Task model)
+- **Module**: `project` (Odoo Project Management module)
 
+### **Fields Used by the App:**
 ```python
-from odoo import models, fields, api
-from datetime import datetime
+# Basic task fields
+'id'                    # Task ID
+'name'                  # Task title
+'description'           # Task description (HTML)
+'priority'              # Task priority (0=Normal, 1=High, -1=Low)
+'date_deadline'         # Due date
+'create_date'           # Creation date
+'write_date'            # Last update date
 
-class ManagerTask(models.Model):
-    _name = 'manager.task'
-    _description = 'Manager Task Management'
-    _order = 'create_date desc'
-    _rec_name = 'title'
-    
-    # Basic fields
-    title = fields.Char('Task Title', required=True, translate=True)
-    description = fields.Text('Description', translate=True)
-    
-    # Manager-Employee Assignment fields
-    assigned_to_id = fields.Many2one('hr.employee', 'Assigned To Employee', required=True)
-    assigned_by_id = fields.Many2one('hr.employee', 'Assigned By Manager', required=True)
-    assigned_by_name = fields.Char('Manager Name', required=True)
-    
-    # Task details
-    priority = fields.Selection([
-        ('low_priority', 'Low Priority'),
-        ('medium_priority', 'Medium Priority'),
-        ('high_priority', 'High Priority'),
-    ], string='Priority', default='medium_priority', required=True)
-    
-    status = fields.Selection([
-        ('pending', 'Pending'),
-        ('in_progress', 'In Progress'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-    ], string='Status', default='pending', required=True)
-    
-    # Dates
-    due_date = fields.Datetime('Due Date', required=True)
-    create_date = fields.Datetime('Created Date', default=fields.Datetime.now, readonly=True)
-    update_date = fields.Datetime('Last Updated', readonly=True)
-    completed_date = fields.Datetime('Completed Date', readonly=True)
-    
-    # Additional fields
-    tags = fields.Char('Tags')
-    notes = fields.Text('Notes')
-    
-    # Computed fields
-    is_overdue = fields.Boolean('Is Overdue', compute='_compute_is_overdue')
-    days_remaining = fields.Integer('Days Remaining', compute='_compute_days_remaining')
-    
-    @api.depends('due_date', 'status')
-    def _compute_is_overdue(self):
-        for task in self:
-            if task.status not in ['completed', 'cancelled'] and task.due_date:
-                task.is_overdue = datetime.now() > task.due_date
-            else:
-                task.is_overdue = False
-    
-    @api.depends('due_date', 'status')
-    def _compute_days_remaining(self):
-        for task in self:
-            if task.status not in ['completed', 'cancelled'] and task.due_date:
-                delta = task.due_date - datetime.now()
-                task.days_remaining = delta.days
-            else:
-                task.days_remaining = 0
-    
-    @api.model
-    def create(self, vals):
-        vals['update_date'] = fields.Datetime.now()
-        return super(HrTask, self).create(vals)
-    
-    def write(self, vals):
-        vals['update_date'] = fields.Datetime.now()
-        if vals.get('status') == 'completed':
-            vals['completed_date'] = fields.Datetime.now()
-        return super(HrTask, self).write(vals)
-    
-    def action_mark_completed(self):
-        self.write({'status': 'completed'})
-    
-    def action_mark_in_progress(self):
-        self.write({'status': 'in_progress'})
-    
-    def action_cancel(self):
-        self.write({'status': 'cancelled'})
+# Assignment fields
+'user_ids'              # Many2many: Assigned employees (user_ids field)
+'create_uid'            # Creator user ID
+
+# Status fields
+'stage_id'              # Many2one: Current stage (default project stages)
+'personal_stage_type_id' # Many2one: Personal stage (for project_todo module)
+'active'                # Boolean: Task active/inactive
+
+# Project fields
+'project_id'            # Many2one: Project (optional)
+'partner_id'            # Many2one: Customer (optional)
 ```
+
+### **How It Works:**
+1. **Task Creation**: Manager creates tasks using `project.task.create()`
+2. **Task Assignment**: Tasks assigned via `user_ids` (many2many field)
+3. **Task Status**: Status managed via `stage_id` or `personal_stage_type_id`
+4. **Task Filtering**: Employee sees only tasks where their `user_id` is in `user_ids`
+
+### **Stage Types Used:**
+- Tasks use `project.task.type` model for available stages
+- Common stages: "To Do", "In Progress", "Done", "Cancelled"
+- App maps stage names to status: `pending`, `in_progress`, `completed`
 
 ---
 
-## **2. Manager Notification Model (`manager.notification`)**
+## **2. Notifications: `mail.message`**
 
-Create a new Python file: `addons/manager_notification/models/manager_notification.py`
+### **Model Used:**
+- **Name**: `mail.message` (Standard Odoo Mail Message model)
+- **Module**: `mail` (Odoo Mail module)
 
+### **Fields Used by the App:**
 ```python
-from odoo import models, fields, api
-from datetime import datetime
+# Basic message fields
+'id'                    # Message ID
+'subject'               # Notification title
+'body'                  # Notification message (HTML)
+'message_type'          # Type: 'notification' for app notifications
+'create_date'           # Creation date
 
-class ManagerNotification(models.Model):
-    _name = 'manager.notification'
-    _description = 'Manager Notifications'
-    _order = 'create_date desc'
-    _rec_name = 'title'
-    
-    # Basic fields
-    title = fields.Char('Title', required=True, translate=True)
-    message = fields.Text('Message', required=True, translate=True)
-    
-    # Assignment fields
-    employee_id = fields.Many2one('hr.employee', 'Employee', required=True)
-    sender_id = fields.Many2one('hr.employee', 'Sender')
-    sender_name = fields.Char('Sender Name')
-    
-    # Notification details
-    type = fields.Selection([
-        ('general', 'General'),
-        ('task_assignment', 'Task Assignment'),
-        ('leave_approval', 'Leave Approval'),
-        ('meeting', 'Meeting'),
-        ('training', 'Training'),
-        ('profile_update', 'Profile Update'),
-        ('evaluation', 'Evaluation'),
-    ], string='Type', default='general', required=True)
-    
-    # Status fields
-    is_read = fields.Boolean('Is Read', default=False)
-    read_date = fields.Datetime('Read Date', readonly=True)
-    
-    # Additional data
-    data = fields.Text('Additional Data')  # JSON string for extra data
-    action_url = fields.Char('Action URL')
-    
-    # Dates
-    create_date = fields.Datetime('Created Date', default=fields.Datetime.now, readonly=True)
-    expiry_date = fields.Datetime('Expiry Date')
-    
-    # Computed fields
-    is_expired = fields.Boolean('Is Expired', compute='_compute_is_expired')
-    
-    @api.depends('expiry_date')
-    def _compute_is_expired(self):
-        for notification in self:
-            if notification.expiry_date:
-                notification.is_expired = datetime.now() > notification.expiry_date
-            else:
-                notification.is_expired = False
-    
-    def mark_as_read(self):
-        self.write({
-            'is_read': True,
-            'read_date': fields.Datetime.now()
-        })
-    
-    def mark_as_unread(self):
-        self.write({
-            'is_read': False,
-            'read_date': False
-        })
-    
-    @api.model
-    def create_notification(self, employee_id, title, message, notification_type='general', data=None, sender_name=None):
-        """Helper method to create notifications"""
-        vals = {
-            'employee_id': employee_id,
-            'title': title,
-            'message': message,
-            'type': notification_type,
-            'data': data or '{}',
-            'sender_name': sender_name or 'System',
-        }
-        return self.create(vals)
+# Recipient fields
+'partner_ids'           # Many2many: Recipient users (res.partner)
+'author_id'             # Many2one: Sender user
+
+# Status fields
+'is_read'               # Boolean: Read status (via mail.notification sub-model)
 ```
+
+### **How It Works:**
+1. **Send Notification**: Creates `mail.message` with `message_type='notification'`
+2. **Target Recipients**: Uses `partner_ids` to specify recipient users
+3. **Read Status**: Tracks read status via `mail.notification` sub-model
+4. **Fetch Notifications**: Employee fetches messages where `partner_ids` contains their user
 
 ---
 
-## **3. Model Files Structure**
+## **3. Employee Management: `hr.employee`**
 
-Create the following file structure in your Odoo addon:
+### **Model Used:**
+- **Name**: `hr.employee` (Standard Odoo HR Employee model)
+- **Module**: `hr` (Odoo Human Resources module)
 
-```
-addons/manager_task_management/
-├── __manifest__.py
-├── __init__.py
-├── models/
-│   ├── __init__.py
-│   ├── manager_task.py
-│   └── manager_notification.py
-├── views/
-│   ├── manager_task_views.xml
-│   └── manager_notification_views.xml
-├── security/
-│   ├── ir.model.access.csv
-│   └── security.xml
-└── data/
-    └── demo.xml
-```
-
----
-
-## **4. Manifest File (`__manifest__.py`)**
-
+### **Fields Used by the App:**
 ```python
-{
-    'name': 'Manager Task Management',
-    'version': '1.0.0',
-    'category': 'Human Resources',
-    'summary': 'Task management system for Manager-Employee relationship',
-    'description': """
-        Manager Task Management System
-        =============================
-        
-        This module provides:
-        * Manager to Employee task assignment
-        * Direct reports task tracking
-        * Manager-Employee notifications
-        * Task status management
-        * Priority management
-        * Due date tracking
-    """,
-    'author': 'Your Company',
-    'website': 'https://www.yourcompany.com',
-    'depends': ['base', 'hr'],
-    'data': [
-        'security/ir.model.access.csv',
-        'security/security.xml',
-        'views/manager_task_views.xml',
-        'views/manager_notification_views.xml',
-        'data/demo.xml',
-    ],
-    'demo': [
-        'data/demo.xml',
-    ],
-    'installable': True,
-    'application': True,
-    'auto_install': False,
-}
+# Basic employee fields
+'id'                    # Employee ID
+'name'                  # Employee name
+'work_email'            # Work email
+'work_phone'            # Work phone
+'mobile_phone'          # Mobile phone
+'birthday'              # Birth date
+
+# Assignment fields
+'user_id'               # Many2one: Associated res.users account
+'parent_id'             # Many2one: Manager (another hr.employee)
+'job_id'                # Many2one: Job position
+'department_id'         # Many2one: Department
+
+# Image field
+'image_1920'            # Binary: Employee photo (base64 encoded)
 ```
 
 ---
 
-## **5. Security Configuration**
+## **4. Leave Management: `hr.leave`**
 
-### `security/ir.model.access.csv`
-```csv
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_manager_task_user,manager.task.user,model_manager_task,hr.group_hr_user,1,1,1,0
-access_manager_task_manager,manager.task.manager,model_manager_task,hr.group_hr_manager,1,1,1,1
-access_manager_notification_user,manager.notification.user,model_manager_notification,hr.group_hr_user,1,0,0,0
-access_manager_notification_manager,manager.notification.manager,model_manager_notification,hr.group_hr_manager,1,1,1,1
+### **Model Used:**
+- **Name**: `hr.leave` (Standard Odoo Leave Request model)
+- **Module**: `hr_holidays` (Odoo Leave Management module)
+
+### **Fields Used by the App:**
+```python
+# Basic leave fields
+'id'                    # Leave request ID
+'name'                  # Reason/description
+'request_date_from'     # Start date
+'request_date_to'       # End date
+'request_unit_half'     # Boolean: Half-day leave
+'state'                 # Status: 'draft', 'confirm', 'validate1', 'validate', 'refuse'
+
+# Assignment fields
+'employee_id'           # Many2one: Employee
+'holiday_status_id'     # Many2one: Leave type (hr.leave.type)
 ```
 
-### `security/security.xml`
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        <!-- Record Rules -->
-        <record id="manager_task_rule_user" model="ir.rule">
-            <field name="name">Manager Task: User Access</field>
-            <field name="model_id" ref="model_manager_task"/>
-            <field name="domain_force">[
-                '|',
-                ('assigned_to_id.user_id', '=', user.id),
-                ('assigned_by_id.user_id', '=', user.id)
-            ]</field>
-            <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
-        </record>
-        
-        <record id="manager_notification_rule_user" model="ir.rule">
-            <field name="name">Manager Notification: User Access</field>
-            <field name="model_id" ref="model_manager_notification"/>
-            <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
-            <field name="groups" eval="[(4, ref('hr.group_hr_user'))]"/>
-        </record>
-    </data>
-</odoo>
+### **Related Models:**
+- **`hr.leave.type`**: Leave types (Annual, Sick, etc.)
+- **`hr.leave.allocation`**: Leave allocations/balance
+- **`hr.leave.employee.type.report`**: Leave balance reports
+
+---
+
+## **5. Attendance Management: `hr.attendance`**
+
+### **Model Used:**
+- **Name**: `hr.attendance` (Standard Odoo Attendance model)
+- **Module**: `hr_attendance` (Odoo Attendance module)
+
+### **Fields Used by the App:**
+```python
+# Basic attendance fields
+'id'                    # Attendance record ID
+'check_in'              # Datetime: Check-in time
+'check_out'             # Datetime: Check-out time
+'worked_hours'          # Float: Total worked hours
+
+# Location fields
+'in_latitude'           # Float: Check-in latitude
+'in_longitude'          # Float: Check-in longitude
+'out_latitude'          # Float: Check-out latitude
+'out_longitude'         # Float: Check-out longitude
+
+# Assignment fields
+'employee_id'           # Many2one: Employee
 ```
 
 ---
 
-## **6. Installation Steps**
+## **6. User Management: `res.users`**
 
-1. **Create the addon directory** in your Odoo addons folder
-2. **Copy all the files** with the structure above
-3. **Update the manifest** with your company details
-4. **Install the module** in Odoo:
-   - Go to Apps menu
-   - Search for "Manager Task Management"
-   - Click Install
+### **Model Used:**
+- **Name**: `res.users` (Standard Odoo User model)
+- **Module**: `base` (Odoo Base module)
 
----
-
-## **7. API Endpoints**
-
-Once installed, the models will be available via XML-RPC:
-
-- **Create Task**: `manager.task.create()`
-- **Read Tasks**: `manager.task.search_read()`
-- **Update Task**: `manager.task.write()`
-- **Create Notification**: `manager.notification.create()`
-- **Read Notifications**: `manager.notification.search_read()`
+### **Fields Used by the App:**
+```python
+# Basic user fields
+'id'                    # User ID
+'name'                  # User name
+'email'                 # Email address
+'login'                 # Login username
+```
 
 ---
 
-## **8. Testing**
+## **Summary: Models Actually Used**
 
-After installation, you can test the system by:
-
-1. **Creating a task** via the Flutter app
-2. **Checking the task** appears in Odoo backend
-3. **Verifying notifications** are created
-4. **Testing task fetching** from employee side
-
----
-
-## **9. Troubleshooting**
-
-### Common Issues:
-
-1. **"Object manager.task doesn't exist"**
-   - Ensure the module is properly installed
-   - Check the model name in the manifest
-
-2. **Permission errors**
-   - Verify security rules are correct
-   - Check user groups and access rights
-
-3. **Data not appearing**
-   - Check domain filters in search methods
-   - Verify employee relationships
+| Purpose | Odoo Model | Module | Custom? |
+|---------|-----------|--------|---------|
+| Tasks | `project.task` | `project` | ❌ Standard |
+| Notifications | `mail.message` | `mail` | ❌ Standard |
+| Employees | `hr.employee` | `hr` | ❌ Standard |
+| Leave Requests | `hr.leave` | `hr_holidays` | ❌ Standard |
+| Leave Types | `hr.leave.type` | `hr_holidays` | ❌ Standard |
+| Leave Balance | `hr.leave.allocation` | `hr_holidays` | ❌ Standard |
+| Attendance | `hr.attendance` | `hr_attendance` | ❌ Standard |
+| Users | `res.users` | `base` | ❌ Standard |
+| Task Stages | `project.task.type` | `project` | ❌ Standard |
 
 ---
 
-## **10. Customization**
+## **⚠️ Important: Custom Models NOT Used**
 
-You can extend these models by:
+The following custom models are **NOT** used in the application:
 
-- Adding custom fields
-- Creating computed fields
-- Adding workflow states
-- Integrating with other modules
-- Adding email notifications
-- Creating reports and dashboards
+- ❌ `manager.task` - **NOT USED** (App uses `project.task` instead)
+- ❌ `manager.notification` - **NOT USED** (App uses `mail.message` instead)
 
-This implementation provides a complete task management system that integrates seamlessly with your Flutter app and Odoo backend.
+These custom models were originally planned but **replaced with standard Odoo models** for immediate functionality without requiring custom Odoo development.
+
+---
+
+## **✅ What This Means**
+
+1. **No Custom Odoo Development Required**: The app works with standard Odoo modules
+2. **Immediate Functionality**: Works out of the box with existing Odoo installations
+3. **Standard Workflows**: Uses Odoo's standard project and HR workflows
+4. **Easy Integration**: Integrates with existing Odoo modules
+
+---
+
+## **📝 Notes**
+
+- The app uses standard Odoo models that come with Odoo by default
+- No custom Python models need to be created in Odoo
+- The app is compatible with standard Odoo installations
+- All functionality uses existing Odoo API endpoints
+
+---
+
+## **🔄 If You Want Custom Models**
+
+If you want to implement custom models (`manager.task`, `manager.notification`), you would need to:
+1. Create the custom models in Odoo (see original guide structure)
+2. Update the Flutter app to use the new models
+3. Migrate existing data from standard models to custom models
+
+However, **this is not required** - the app works perfectly with standard Odoo models.

@@ -33,24 +33,55 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
 
   Future<void> _loadUncompletedTasksCount() async {
     try {
-      final tasks = await OdooService().getEmployeeTasks();
-      print('📊 Total tasks fetched: ${tasks.length}');
+      // Get current employee ID
+      final employeeId = await OdooService().getCurrentEmployeeId();
 
-      // Filter for uncompleted tasks (anything that is not completed)
+      // Get all tasks (getTasksForEmployee filters some, but we need extra filtering)
+      final tasks =
+          await OdooService().getTasksForEmployee(employeeId: employeeId);
+      print('📊 Total tasks fetched before filtering: ${tasks.length}');
+
+      // Additional filtering: check both stage_id and personal_stage_type_id
       final uncompletedTasks = tasks.where((task) {
-        final status = task['status']?.toString().toLowerCase() ?? '';
-        final isCompleted = status == 'completed' ||
-            status.contains('done') ||
-            status.contains('completed');
-        if (isCompleted) {
-          print('✅ Task "${task['title']}" is completed (status: $status)');
-        } else {
-          print('⏳ Task "${task['title']}" is NOT completed (status: $status)');
+        // Helper function to extract stage name
+        String getStageName(dynamic stage) {
+          if (stage == null || stage == false) return '';
+          if (stage is List && stage.length > 1) {
+            return stage[1].toString().toLowerCase();
+          }
+          return stage.toString().toLowerCase();
         }
+
+        // Check personal_stage_type_id first (used for task updates)
+        final personalStage = task['personal_stage_type_id'];
+        final personalStageName = getStageName(personalStage);
+
+        // Check stage_id as fallback
+        final stageId = task['stage_id'];
+        final stageName = getStageName(stageId);
+
+        // Determine which stage name to use
+        final effectiveStageName =
+            personalStageName.isNotEmpty ? personalStageName : stageName;
+
+        // Check if task is completed or cancelled
+        final isCompleted = effectiveStageName.contains('done') ||
+            effectiveStageName.contains('fait') ||
+            effectiveStageName.contains('terminé') ||
+            effectiveStageName.contains('completed') ||
+            effectiveStageName.contains('cancelled') ||
+            effectiveStageName.contains('annulé');
+
+        if (isCompleted) {
+          print(
+              '⏭️ Excluding completed task: "${task['name']}" (Stage: $effectiveStageName)');
+        }
+
         return !isCompleted;
       }).toList();
 
-      print('📋 Uncompleted tasks count: ${uncompletedTasks.length}');
+      print(
+          '📋 Uncompleted tasks count after filtering: ${uncompletedTasks.length}');
 
       if (mounted) {
         setState(() {

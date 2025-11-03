@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../widgets/employee_drawer.dart';
+import '../widgets/last_notification_widget.dart';
 import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../utils/app_localizations.dart';
@@ -25,8 +26,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
   int _unreadCount = 0;
   bool _isLoadingNotifications = true;
+  Map<String, dynamic>? _lastNotification;
+  bool _isLoadingLastNotification = true;
   double _weeklyHours = 0.0;
   bool _isLoadingWeeklyHours = true;
+  int _pendingLeaveRequestsCount = 0;
+  bool _isLoadingLeaveRequests = true;
 
   // Get current week (Monday to Saturday)
   DateTime get _weekStart {
@@ -58,6 +63,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       _loadLeaveBalance();
       _loadNotifications();
       _loadWeeklyHours();
+      _loadPendingLeaveRequestsCount();
     });
   }
 
@@ -87,16 +93,41 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
   Future<void> _loadNotifications() async {
     try {
+      setState(() {
+        _isLoadingLastNotification = true;
+      });
+
       final notifications = await _odooService.getUnreadNotifications();
+      print('Loaded ${notifications.length} notifications');
+
+      // Sort notifications by date (most recent first)
+      List<Map<String, dynamic>> sortedNotifications = List.from(notifications);
+      sortedNotifications.sort((a, b) {
+        final dateA = a['create_date']?.toString() ?? '';
+        final dateB = b['create_date']?.toString() ?? '';
+        try {
+          final parsedA = DateTime.parse(dateA.split('.')[0]);
+          final parsedB = DateTime.parse(dateB.split('.')[0]);
+          return parsedB.compareTo(parsedA);
+        } catch (e) {
+          return dateB.compareTo(dateA);
+        }
+      });
 
       setState(() {
         _unreadCount = notifications.where((n) => n['is_read'] == false).length;
         _isLoadingNotifications = false;
+        _lastNotification =
+            sortedNotifications.isNotEmpty ? sortedNotifications.first : null;
+        _isLoadingLastNotification = false;
+        print('Last notification set: ${_lastNotification != null}');
       });
     } catch (e) {
       print('Error loading notifications for dashboard: $e');
       setState(() {
         _isLoadingNotifications = false;
+        _isLoadingLastNotification = false;
+        _lastNotification = null;
       });
     }
   }
@@ -154,6 +185,35 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         setState(() {
           _weeklyHours = 0.0;
           _isLoadingWeeklyHours = false;
+        });
+      }
+    }
+  }
+
+  // Load pending leave requests count
+  Future<void> _loadPendingLeaveRequestsCount() async {
+    setState(() => _isLoadingLeaveRequests = true);
+    try {
+      final requests = await _odooService.getLeaveRequests();
+
+      // Count requests that are in pending states (draft, confirm, validate1)
+      final pendingStates = ['draft', 'confirm', 'validate1'];
+      final pendingCount = requests.where((request) {
+        final state = request['state']?.toString().toLowerCase() ?? '';
+        return pendingStates.contains(state);
+      }).length;
+
+      if (mounted) {
+        setState(() {
+          _pendingLeaveRequestsCount = pendingCount;
+          _isLoadingLeaveRequests = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading pending leave requests count: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingLeaveRequests = false;
         });
       }
     }
@@ -259,7 +319,13 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              // Last Notification Widget
+              LastNotificationWidget(
+                notification: _lastNotification,
+                isLoading: _isLoadingLastNotification,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              const SizedBox(height: 16),
 
               // Metrics Cards Grid
               Expanded(
@@ -308,9 +374,20 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                             child: _buildMetricCard(
                               title: localizations.translate('requests_status'),
                               subtitle: localizations.translate('in_progress'),
-                              value: '3',
+                              value: _isLoadingLeaveRequests
+                                  ? '...'
+                                  : _pendingLeaveRequestsCount.toString(),
                               color: const Color(0xFF8B5CF6),
-                              chart: _buildCircularProgress(0.6),
+                              chart: _pendingLeaveRequestsCount > 0
+                                  ? _buildCircularProgress(
+                                      _pendingLeaveRequestsCount > 10
+                                          ? 1.0
+                                          : _pendingLeaveRequestsCount / 10)
+                                  : _buildCircularProgress(0.0),
+                              onTap: () {
+                                Navigator.pushNamed(
+                                    context, '/employee-leave-requests');
+                              },
                             ),
                           ),
                         ],

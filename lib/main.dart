@@ -33,10 +33,12 @@ import 'screens/attendance_screen.dart';
 import 'screens/attendance_history_screen.dart';
 import 'screens/work_time_statistics_screen.dart';
 import 'screens/expense_reports_screen.dart';
+import 'screens/employee_leave_requests_screen.dart';
 import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/odoo_service.dart';
+import 'services/sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +48,9 @@ void main() async {
 
   // Initialize Odoo Notification Service
   await OdooNotificationService().initialize();
+
+  // Initialize Sync Service for offline support
+  await SyncService().initialize();
 
   runApp(const HRManagementApp());
 }
@@ -97,6 +102,8 @@ class HRManagementApp extends StatelessWidget {
               '/leave-calendar': (context) => const LeaveCalendarScreen(),
               '/leave-request': (context) => const LeaveRequestScreen(),
               '/leave-balance': (context) => const LeaveBalanceScreen(),
+              '/employee-leave-requests': (context) =>
+                  const EmployeeLeaveRequestsScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/personal-info': (context) => const PersonalInfoScreen(),
               '/personal-documents': (context) =>

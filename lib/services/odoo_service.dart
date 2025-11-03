@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
+import 'sync_service.dart';
 
 class OdooService {
   // Singleton instance so auth state (uid/password) is shared across providers
@@ -199,6 +200,20 @@ class OdooService {
 
   // Update employee photo
   Future<bool> updateEmployeePhoto(String base64Image) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing photo update for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opEmployeePhotoUpdate,
+        operationData: {
+          'base64Image': base64Image,
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
     print('Updating employee photo...');
 
     try {
@@ -232,6 +247,21 @@ class OdooService {
 
   // Update individual employee field
   Future<bool> updateEmployeeField(String fieldKey, String newValue) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing field update for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opEmployeeUpdate,
+        operationData: {
+          'fieldKey': fieldKey,
+          'newValue': newValue,
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
     print('Updating employee field: $fieldKey to $newValue');
 
     try {
@@ -776,6 +806,148 @@ class OdooService {
     }
   }
 
+  // Send modification request notification to HR employees
+  Future<bool> sendNotificationToHR({
+    required int employeeId,
+    required String fieldName,
+    required String fieldLabel,
+    required String currentValue,
+    required String newValue,
+    String? base64Image,
+  }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing HR notification for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opHRNotification,
+        operationData: {
+          'employeeId': employeeId,
+          'fieldName': fieldName,
+          'fieldLabel': fieldLabel,
+          'currentValue': currentValue,
+          'newValue': newValue,
+          'base64Image': base64Image,
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
+    print('Sending modification request notification to HR');
+
+    try {
+      final currentEmployeeId = await getCurrentEmployeeId();
+
+      // Find HR employees by searching for job titles containing "HR", "RH", or "Ressources Humaines"
+      final hrEmployees = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'search_read',
+        [
+          [
+            ['job_id', '!=', false],
+            ['active', '=', true],
+          ]
+        ],
+        {
+          'fields': ['id', 'name', 'user_id', 'job_id'],
+          'limit': 100,
+        }
+      ]);
+
+      if (hrEmployees is! List || hrEmployees.isEmpty) {
+        print('⚠️ No HR employees found');
+        return false;
+      }
+
+      // Filter HR employees by job title
+      final List<int> hrUserIds = [];
+      for (var emp in hrEmployees) {
+        if (emp is Map<String, dynamic>) {
+          final jobId = emp['job_id'];
+          String jobName = '';
+
+          if (jobId is List && jobId.length > 1) {
+            jobName = jobId[1].toString().toLowerCase();
+          }
+
+          // Check if job title contains HR-related keywords
+          if (jobName.contains('rh') ||
+              jobName.contains('ressources humaines') ||
+              jobName.contains('hr') ||
+              jobName.contains('human resources')) {
+            final userId = emp['user_id'];
+            if (userId is List && userId.isNotEmpty) {
+              hrUserIds.add(userId[0]);
+              print(
+                  '✅ Found HR employee: ${emp['name']} (user_id: ${userId[0]})');
+            }
+          }
+        }
+      }
+
+      if (hrUserIds.isEmpty) {
+        print('⚠️ No HR employees with valid user accounts found');
+        return false;
+      }
+
+      // Build notification message
+      String notificationBody = '';
+      if (base64Image != null) {
+        notificationBody = '''
+        <p><strong>Demande de modification de photo</strong></p>
+        <p>L'employé ID $currentEmployeeId souhaite modifier sa photo de profil.</p>
+        <p>Une nouvelle photo a été fournie.</p>
+        ''';
+      } else {
+        notificationBody = '''
+        <p><strong>Demande de modification d'information</strong></p>
+        <p><strong>Employé ID:</strong> $currentEmployeeId</p>
+        <p><strong>Champ:</strong> $fieldLabel ($fieldName)</p>
+        <p><strong>Valeur actuelle:</strong> $currentValue</p>
+        <p><strong>Nouvelle valeur demandée:</strong> $newValue</p>
+        <p>Veuillez valider cette modification dans Odoo.</p>
+        ''';
+      }
+
+      // Create mail message notification for all HR employees
+      final messageData = {
+        'subject': base64Image != null
+            ? 'Demande de modification de photo - Employé ID $currentEmployeeId'
+            : 'Demande de modification - $fieldLabel - Employé ID $currentEmployeeId',
+        'body': notificationBody,
+        'message_type': 'notification',
+        'partner_ids': [
+          [6, 0, hrUserIds]
+        ], // Send to all HR users
+        'model': 'hr.employee',
+        'res_id': currentEmployeeId,
+        'date': _formatDateForOdoo(DateTime.now()),
+      };
+
+      final result = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'mail.message',
+        'create',
+        [messageData],
+        {
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      print('✅ HR notification sent result: $result');
+      return result != null;
+    } catch (e) {
+      print('❌ Error sending HR notification: $e');
+      return false;
+    }
+  }
+
   // Create task in Odoo using project.task (existing model)
   Future<int> createTask({
     required int employeeId,
@@ -785,6 +957,25 @@ class OdooService {
     required DateTime dueDate,
     required String assignedByName,
   }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing task creation for sync');
+      final queueId = await syncService.queueOperation(
+        operationType: SyncService.opTaskCreate,
+        operationData: {
+          'employeeId': employeeId,
+          'title': title,
+          'description': description,
+          'priority': priority,
+          'dueDate': dueDate.toIso8601String(),
+          'assignedByName': assignedByName,
+        },
+      );
+      return queueId; // Return queue ID as temporary ID for offline mode
+    }
+
     print('Creating task in Odoo for employee $employeeId');
 
     try {
@@ -1105,25 +1296,41 @@ class OdooService {
             print(
                 '  ✅ Task "${item['name']}" is assigned to user $targetUserId');
 
-            // Filter out tasks that are in "Done" or "Cancelled" stages to match Odoo "Ouvert" filter
+            // Include all tasks (including "Done") - only filter out "Cancelled" tasks
+            // Check both personal_stage_type_id (used for updates) and stage_id (default stage)
+            final personalStageTypeId = item['personal_stage_type_id'];
             final stageId = item['stage_id'];
-            bool isCompletedOrCancelled = false;
+            bool isCancelled = false;
 
-            if (stageId is List && stageId.length > 1) {
-              final stageName = stageId[1].toString().toLowerCase();
-              if (stageName.contains('done') ||
-                  stageName.contains('fait') ||
-                  stageName.contains('terminé') ||
-                  stageName.contains('cancelled') ||
-                  stageName.contains('annulé')) {
-                isCompletedOrCancelled = true;
+            // Helper function to extract stage name
+            String getStageName(dynamic stage) {
+              if (stage == null || stage == false) return '';
+              if (stage is List && stage.length > 1) {
+                return stage[1].toString().toLowerCase();
+              }
+              return stage.toString().toLowerCase();
+            }
+
+            // Check personal_stage_type_id first (used for task updates)
+            final personalStageName = getStageName(personalStageTypeId);
+            final stageName = getStageName(stageId);
+
+            // Use personal_stage_type_id if available, otherwise use stage_id
+            final effectiveStageName =
+                personalStageName.isNotEmpty ? personalStageName : stageName;
+
+            // Only filter out "Cancelled" tasks, but keep "Done" tasks visible
+            if (effectiveStageName.isNotEmpty) {
+              if (effectiveStageName.contains('cancelled') ||
+                  effectiveStageName.contains('annulé')) {
+                isCancelled = true;
                 print(
-                    '  ⏭️ Skipping completed/cancelled task: ${item['name']} (Stage: $stageName)');
+                    '  ⏭️ Skipping cancelled task: ${item['name']} (Personal Stage: $personalStageName, Stage: $stageName, Effective: $effectiveStageName)');
               }
             }
 
-            // Only include tasks that are assigned to current user AND not completed/cancelled
-            if (!isCompletedOrCancelled) {
+            // Include all tasks assigned to current user (including "Done"), except "Cancelled"
+            if (!isCancelled) {
               // Transform project.task data to match our expected format
               validTasks.add({
                 'id': item['id'],
@@ -1161,7 +1368,7 @@ class OdooService {
           }
         });
         print(
-            '✅ Processed ${validTasks.length} tasks assigned to user $userId (filtered: only tasks where user is in user_ids, excluding completed/cancelled)');
+            '✅ Processed ${validTasks.length} tasks assigned to user $userId (filtered: only tasks where user is in user_ids, excluding cancelled, but including done tasks)');
         print(
             '📊 Summary: ${tasks.length} total from Odoo → ${validTasks.length} valid tasks assigned to current user');
         return validTasks;
@@ -1180,6 +1387,21 @@ class OdooService {
     required int taskId,
     required String newStage,
   }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing task update for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opTaskUpdate,
+        operationData: {
+          'taskId': taskId,
+          'newStage': newStage,
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
     try {
       print('Updating task $taskId status to $newStage');
 
@@ -2356,6 +2578,24 @@ class OdooService {
     String? reason,
     bool? isHalfDay, // Optional: specify if it's a half-day leave
   }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing leave request for sync');
+      final queueId = await syncService.queueOperation(
+        operationType: SyncService.opLeaveRequest,
+        operationData: {
+          'leaveTypeId': leaveTypeId,
+          'dateFrom': dateFrom.toIso8601String(),
+          'dateTo': dateTo.toIso8601String(),
+          'reason': reason,
+          'isHalfDay': isHalfDay,
+        },
+      );
+      return queueId; // Return queue ID as temporary ID for offline mode
+    }
+
     final employeeId = await getCurrentEmployeeId();
 
     // Normalize dates to start/end of day in local timezone
@@ -4344,13 +4584,30 @@ class OdooService {
     }
   }
 
-// Punch in (Check in)
+  // Punch in (Check in)
   Future<bool> punchIn({
     required double latitude,
     required double longitude,
     required DateTime checkIn,
     int? entiteId,
   }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing punch in for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opAttendancePunchIn,
+        operationData: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'checkIn': checkIn.toIso8601String(),
+          'entiteId': entiteId,
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
@@ -4480,6 +4737,22 @@ class OdooService {
     required double longitude,
     required DateTime checkOut,
   }) async {
+    final syncService = SyncService();
+
+    // Check if offline - queue operation if so
+    if (!syncService.isConnected) {
+      print('📴 Offline: Queueing punch out for sync');
+      await syncService.queueOperation(
+        operationType: SyncService.opAttendancePunchOut,
+        operationData: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'checkOut': checkOut.toIso8601String(),
+        },
+      );
+      return true; // Return success immediately for offline mode
+    }
+
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }

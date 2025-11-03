@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/odoo_service.dart';
 import '../services/user_service.dart';
-import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../utils/navigation_helpers.dart';
@@ -228,6 +227,17 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         if (success) {
           // Update the user service with the new profile image
           UserService.instance.updateUserProfileImage(base64Image);
+
+          // Send notification to HR via OdooService (with offline support)
+          final employeeId = await OdooService().getCurrentEmployeeId();
+          await OdooService().sendNotificationToHR(
+            employeeId: employeeId,
+            fieldName: 'image_1920',
+            fieldLabel: 'Photo de profil',
+            currentValue: 'Photo existante',
+            newValue: 'Nouvelle photo',
+            base64Image: base64Image,
+          );
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -892,8 +902,29 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           UserService.instance.updateUserName(newValue);
         }
 
-        // Send notification to HR
-        await _sendHRNotification(fieldKey, newValue);
+        // Send notification to HR via OdooService (with offline support)
+        final employeeId = await OdooService().getCurrentEmployeeId();
+        final employeeData = await OdooService().getEmployeeDetails();
+
+        // Map field key to label
+        final fieldLabels = {
+          'name': 'Nom complet',
+          'work_email': 'Email professionnel',
+          'work_phone': 'Téléphone professionnel',
+          'mobile_phone': 'Téléphone portable',
+          'birthday': 'Date de naissance',
+        };
+
+        final fieldLabel = fieldLabels[fieldKey] ?? fieldKey;
+        final currentValue = employeeData[fieldKey]?.toString() ?? 'N/A';
+
+        await OdooService().sendNotificationToHR(
+          employeeId: employeeId,
+          fieldName: fieldKey,
+          fieldLabel: fieldLabel,
+          currentValue: currentValue,
+          newValue: newValue,
+        );
 
         // Show success message
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -930,19 +961,6 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     }
   }
 
-  Future<void> _sendHRNotification(String fieldKey, String newValue) async {
-    // Import NotificationService
-    final notificationService = NotificationService();
-
-    // Create notification for HR
-    notificationService.addNotification(
-      title: 'Modification d\'information personnelle',
-      description: 'Un employé a modifié son $fieldKey vers: $newValue',
-      priority: 'medium_priority',
-      dueDate: DateTime.now().add(const Duration(days: 1)),
-      assignedByName: 'Système',
-      assignedToName: 'RH',
-      type: 'info_change',
-    );
-  }
+  // Note: HR notifications are now sent via OdooService.sendNotificationToHR
+  // which supports offline mode and syncs automatically when connection is restored
 }

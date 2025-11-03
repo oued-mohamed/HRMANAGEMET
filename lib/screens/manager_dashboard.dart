@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../widgets/manager_drawer.dart';
+import '../widgets/last_notification_widget.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../presentation/providers/auth_provider.dart';
@@ -8,7 +10,6 @@ import '../presentation/providers/dashboard_provider.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 import 'dart:convert';
-import 'package:intl/intl.dart';
 
 class ManagerDashboard extends StatefulWidget {
   const ManagerDashboard({super.key});
@@ -19,6 +20,10 @@ class ManagerDashboard extends StatefulWidget {
 
 class _ManagerDashboardState extends State<ManagerDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final OdooService _odooService = OdooService();
+
+  Map<String, dynamic>? _lastNotification;
+  bool _isLoadingLastNotification = true;
 
   @override
   void initState() {
@@ -26,7 +31,46 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     // Load data only if not already cached
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DashboardProvider>().loadTeamData();
+      _loadNotifications();
     });
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      setState(() {
+        _isLoadingLastNotification = true;
+      });
+
+      final notifications = await _odooService.getUnreadNotifications();
+      print('Manager - Loaded ${notifications.length} notifications');
+
+      // Sort notifications by date (most recent first)
+      List<Map<String, dynamic>> sortedNotifications = List.from(notifications);
+      sortedNotifications.sort((a, b) {
+        final dateA = a['create_date']?.toString() ?? '';
+        final dateB = b['create_date']?.toString() ?? '';
+        try {
+          final parsedA = DateTime.parse(dateA.split('.')[0]);
+          final parsedB = DateTime.parse(dateB.split('.')[0]);
+          return parsedB.compareTo(parsedA);
+        } catch (e) {
+          return dateB.compareTo(dateA);
+        }
+      });
+
+      setState(() {
+        _lastNotification =
+            sortedNotifications.isNotEmpty ? sortedNotifications.first : null;
+        _isLoadingLastNotification = false;
+        print('Manager - Last notification set: ${_lastNotification != null}');
+      });
+    } catch (e) {
+      print('Error loading notifications for manager dashboard: $e');
+      setState(() {
+        _isLoadingLastNotification = false;
+        _lastNotification = null;
+      });
+    }
   }
 
   @override
@@ -158,6 +202,14 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                       ],
                     ),
                   ),
+
+                  // Last Notification Widget
+                  LastNotificationWidget(
+                    notification: _lastNotification,
+                    isLoading: _isLoadingLastNotification,
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Content
                   Expanded(

@@ -80,7 +80,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Statut de la tâche mis à jour'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xFF000B58),
           ),
         );
         // Reload tasks without cache to get fresh data
@@ -166,23 +166,40 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
     final personalStage = task['personal_stage_type_id'];
     final stageId = task['stage_id'];
 
+    String? stageName;
+
     // Try personal_stage_type_id first
     if (personalStage != null && personalStage != false) {
-      final stageName = _getStageName(personalStage);
+      stageName = _getStageName(personalStage);
       if (stageName != 'Non défini') {
-        return stageName;
+        return _normalizeStageName(stageName);
       }
     }
 
     // Fallback to stage_id
     if (stageId != null && stageId != false) {
-      final stageName = _getStageName(stageId);
+      stageName = _getStageName(stageId);
       if (stageName != 'Non défini') {
-        return stageName;
+        return _normalizeStageName(stageName);
       }
     }
 
     return 'Non défini';
+  }
+
+  // Normalize stage name: replace system stages with user-friendly names
+  String _normalizeStageName(String stageName) {
+    final lowerStageName = stageName.toLowerCase();
+
+    // Replace "Boîte de réception" / "Inbox" with "À faire" (To Do)
+    if (lowerStageName.contains('boîte de réception') ||
+        lowerStageName.contains('boite de reception') ||
+        lowerStageName.contains('inbox')) {
+      return 'À faire';
+    }
+
+    // Return original stage name if no replacement needed
+    return stageName;
   }
 
   @override
@@ -201,7 +218,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Color(0xFF2E7D32),
+        backgroundColor: Color(0xFF000B58),
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.white),
         actions: [
@@ -218,7 +235,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                 children: [
                   CircularProgressIndicator(
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                        AlwaysStoppedAnimation<Color>(Color(0xFF000B58)),
                   ),
                   SizedBox(height: 16),
                   Text(
@@ -254,7 +271,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                       ElevatedButton(
                         onPressed: _loadTasks,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF2E7D32),
+                          backgroundColor: Color(0xFF000B58),
                           foregroundColor: Colors.white,
                         ),
                         child: Text('Réessayer'),
@@ -295,7 +312,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _loadTasks,
-                      color: Color(0xFF2E7D32),
+                      color: Color(0xFF000B58),
                       child: ListView.builder(
                         padding: EdgeInsets.all(16),
                         itemCount: _tasks.length,
@@ -420,8 +437,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                                               _showTaskDetails(task),
                                           style: OutlinedButton.styleFrom(
                                             side: BorderSide(
-                                                color: Color(0xFF2E7D32)),
-                                            foregroundColor: Color(0xFF2E7D32),
+                                                color: Color(0xFF000B58)),
+                                            foregroundColor: Color(0xFF000B58),
                                           ),
                                           child: Text('Détails'),
                                         ),
@@ -432,7 +449,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                                           onPressed: () =>
                                               _showStatusUpdateDialog(task),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: Color(0xFF2E7D32),
+                                            backgroundColor: Color(0xFF000B58),
                                             foregroundColor: Colors.white,
                                           ),
                                           child: Text('Mettre à jour'),
@@ -576,7 +593,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                     }
                   : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF2E7D32),
+                backgroundColor: Color(0xFF000B58),
                 foregroundColor: Colors.white,
               ),
               child: Text('Confirmer'),
