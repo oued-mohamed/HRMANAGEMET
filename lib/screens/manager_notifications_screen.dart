@@ -3,10 +3,9 @@ import '../services/notification_service.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../utils/navigation_helpers.dart';
-import '../widgets/manager_drawer.dart';
 
 // Reuse the EmployeeNotificationsScreen logic for managers
-// This screen uses ManagerDrawer instead of EmployeeDrawer
+// This screen uses a back button instead of a drawer menu
 class ManagerNotificationsScreen extends StatefulWidget {
   const ManagerNotificationsScreen({super.key});
 
@@ -17,7 +16,6 @@ class ManagerNotificationsScreen extends StatefulWidget {
 
 class _ManagerNotificationsScreenState
     extends State<ManagerNotificationsScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final NotificationService _notificationService = NotificationService();
   final OdooService _odooService = OdooService();
 
@@ -132,8 +130,6 @@ class _ManagerNotificationsScreenState
     final localizations = AppLocalizations.of(context);
 
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: const ManagerDrawer(),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -168,8 +164,8 @@ class _ManagerNotificationsScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                        icon: const Icon(Icons.menu,
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back,
                             color: Colors.white, size: 26),
                       ),
                     ),
