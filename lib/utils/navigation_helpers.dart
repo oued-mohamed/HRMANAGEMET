@@ -5,22 +5,45 @@ import '../core/enums/user_role.dart';
 
 class NavigationHelpers {
   /// Navigate back to the appropriate screen:
-  /// - If we can pop to dashboard, do that
-  /// - Otherwise, go to the menu
+  /// - If we can pop, just go back
+  /// - Otherwise, check if we came from menu and go back to menu, else go to dashboard
   static Future<void> backToPrevious(BuildContext context) async {
     final navigator = Navigator.of(context);
 
     // Try to pop first - if there's a previous route, just go back
     if (navigator.canPop()) {
+      // Check if the previous route is a menu route
+      final previousRoute = ModalRoute.of(context)?.settings.name;
+      if (previousRoute == '/employee-menu' || 
+          previousRoute == '/manager-menu' || 
+          previousRoute == '/hr-menu') {
+        // If current route might be from menu, check navigation history
+        // For now, just pop - if it fails, we'll go to menu
+        navigator.pop();
+        return;
+      }
       navigator.pop();
       return;
     }
 
-    // If we can't pop, navigate to the appropriate dashboard or menu
+    // If we can't pop, try to go back to menu first (since user might have come from menu)
+    // Check navigation history to see if we came from a menu
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final role = auth.currentCompany?.userRole ?? UserRole.employee;
 
+      // Check if there's a menu route in the navigation stack
+      final currentRoute = ModalRoute.of(context)?.settings.name;
+      
+      // If we're on notifications and can't pop, likely came from menu
+      if (currentRoute == '/employee-notifications' || 
+          currentRoute == '/manager-notifications') {
+        // Go back to menu instead of dashboard
+        await backToMenu(context);
+        return;
+      }
+
+      // Otherwise, go to dashboard
       String dashboardRoute;
 
       if (role == UserRole.manager) {

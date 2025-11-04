@@ -169,8 +169,15 @@ class _EmployeeNotificationsScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        onPressed: () =>
-                            NavigationHelpers.backToPrevious(context),
+                        onPressed: () {
+                          // Check if we can pop (meaning there's a previous route)
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.pop(context);
+                          } else {
+                            // If we can't pop, go back to menu (since user likely came from menu)
+                            NavigationHelpers.backToMenu(context);
+                          }
+                        },
                         icon: const Icon(Icons.arrow_back,
                             color: Colors.white, size: 26),
                       ),
