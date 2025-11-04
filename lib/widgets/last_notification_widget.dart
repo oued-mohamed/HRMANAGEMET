@@ -174,7 +174,7 @@ class LastNotificationWidget extends StatelessWidget {
           },
           borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -306,16 +306,16 @@ class LastNotificationWidget extends StatelessWidget {
                       Text(
                         'VOIR',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          letterSpacing: 0.8,
+                          letterSpacing: 1.8,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Icon(
                         Icons.arrow_forward_rounded,
-                        size: 14,
+                        size: 20,
                         color: Colors.white,
                       ),
                     ],
