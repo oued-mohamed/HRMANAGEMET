@@ -27,6 +27,7 @@ import 'screens/hr_employee_management_screen.dart';
 import 'screens/leave_management_screen.dart';
 import 'screens/employee_notifications_screen.dart';
 import 'screens/hr_notifications_screen.dart';
+import 'screens/manager_notifications_screen.dart';
 import 'screens/hr_sent_notifications_screen.dart';
 import 'screens/employee_tasks_screen.dart';
 import 'screens/attendance_screen.dart';
@@ -120,6 +121,8 @@ class HRManagementApp extends StatelessWidget {
               '/leave-management': (context) => const LeaveManagementScreen(),
               '/employee-notifications': (context) =>
                   const EmployeeNotificationsScreen(),
+              '/manager-notifications': (context) =>
+                  const ManagerNotificationsScreen(),
               '/employee-tasks': (context) => FutureBuilder<int>(
                     future: OdooService().getCurrentEmployeeId(),
                     builder: (context, snapshot) {

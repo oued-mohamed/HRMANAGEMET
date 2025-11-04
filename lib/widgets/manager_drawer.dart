@@ -331,9 +331,35 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                           },
                         ),
 
+                        // 6. Notifications (Manager)
+                        ListTile(
+                          leading: const Icon(
+                            Icons.notifications_outlined,
+                            color: Colors.white,
+                          ),
+                          title: Text(
+                            localizations.translate('notifications'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          onTap: () {
+                            final currentRoute =
+                                ModalRoute.of(context)?.settings.name;
+                            if (currentRoute == '/manager-menu') {
+                              Navigator.pushNamed(context, '/manager-notifications');
+                            } else {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/manager-notifications');
+                            }
+                          },
+                        ),
+
                         const Divider(color: Colors.white30, thickness: 1),
 
-                        // 6. Paie & avantages
+                        // 7. Paie & avantages
                         _buildExpandableMenuItem(
                           context: context,
                           localizations: localizations,

@@ -345,7 +345,7 @@ class OdooService {
 
         if (userId is List && userId.isNotEmpty) {
           print('Searching for notifications for user ID: ${userId[0]}');
-          
+
           // Get the partner_id from the user (partner_ids field contains res.partner IDs, not res.users IDs)
           int? partnerId;
           try {
@@ -374,10 +374,11 @@ class OdooService {
 
           // If no partner_id found, return empty list
           if (partnerId == null) {
-            print('⚠️ No partner_id found for user, cannot fetch notifications');
+            print(
+                '⚠️ No partner_id found for user, cannot fetch notifications');
             return [];
           }
-          
+
           // Fetch mail.message notifications sent to this user's partner
           // This matches the original logic from GitHub
           final notifications = await _callRPC('object', 'execute_kw', [
@@ -388,7 +389,11 @@ class OdooService {
             'search_read',
             [
               [
-                ['partner_ids', 'in', [partnerId]],
+                [
+                  'partner_ids',
+                  'in',
+                  [partnerId]
+                ],
                 ['message_type', '=', 'notification'],
               ]
             ],
@@ -415,20 +420,39 @@ class OdooService {
             final List<Map<String, dynamic>> validNotifications = [];
             for (var item in notifications) {
               if (item is Map<String, dynamic>) {
+                // Convert false values to null/empty for string fields
+                // Odoo returns false for empty fields, but we need strings
+                final subject = item['subject'];
+                final body = item['body'];
+                final createDate = item['create_date'];
+                final model = item['model'];
+                final resId = item['res_id'];
+
                 // Transform mail.message data to notification format
                 validNotifications.add({
                   'id': item['id'],
-                  'title': item['subject'] ?? 'Notification',
-                  'message': item['body'] ?? '',
+                  'title': (subject == false || subject == null)
+                      ? 'Notification'
+                      : subject.toString(),
+                  'message':
+                      (body == false || body == null) ? '' : body.toString(),
                   'type': 'hr_notification',
                   'data': {
                     'message_id': item['id'],
-                    'subject': item['subject'],
-                    'body': item['body'],
-                    'model': item['model'],
-                    'res_id': item['res_id'],
+                    'subject': (subject == false || subject == null)
+                        ? null
+                        : subject.toString(),
+                    'body': (body == false || body == null)
+                        ? null
+                        : body.toString(),
+                    'model': (model == false || model == null)
+                        ? null
+                        : model.toString(),
+                    'res_id': resId,
                   },
-                  'create_date': item['create_date'],
+                  'create_date': (createDate == false || createDate == null)
+                      ? null
+                      : createDate.toString(),
                   'employee_id': employeeId,
                   'is_read': false, // We'll track this locally for now
                 });
@@ -436,7 +460,7 @@ class OdooService {
             }
             return validNotifications;
           }
-          
+
           return [];
         }
       }
@@ -5047,7 +5071,7 @@ class OdooService {
       // Fetch mail.message records created by the current logged-in user
       // Uses the same module and logic as sendNotificationToEmployee()
       // The author_id is automatically set to the user making the RPC call (_userId)
-      
+
       // Fetch mail.message records created by the current logged-in user
       // Use search then read (same pattern as other methods) to avoid XML-RPC format issues
       // Don't filter by model - get all notifications sent by this user
@@ -5069,7 +5093,8 @@ class OdooService {
         }
       ]);
 
-      print('📊 Found ${messageIds is List ? messageIds.length : 0} message IDs');
+      print(
+          '📊 Found ${messageIds is List ? messageIds.length : 0} message IDs');
 
       if (messageIds is List && messageIds.isNotEmpty) {
         // Read full message data for all IDs
@@ -5093,18 +5118,42 @@ class OdooService {
           }
         ]);
 
-        print('📦 Read ${sentMessages is List ? sentMessages.length : 0} message records');
+        print(
+            '📦 Read ${sentMessages is List ? sentMessages.length : 0} message records');
 
         if (sentMessages is List) {
           final List<Map<String, dynamic>> validMessages = [];
-          
+
           // Process each message record
           for (var item in sentMessages) {
             if (item is Map) {
               try {
                 final message = Map<String, dynamic>.from(item);
+
+                // Convert false values to null for string fields to prevent type errors
+                // Odoo returns false for empty fields, but we need strings or null
+                if (message.containsKey('subject') &&
+                    message['subject'] == false) {
+                  message['subject'] = null;
+                }
+                if (message.containsKey('body') && message['body'] == false) {
+                  message['body'] = null;
+                }
+                if (message.containsKey('create_date') &&
+                    message['create_date'] == false) {
+                  message['create_date'] = null;
+                }
+                if (message.containsKey('model') && message['model'] == false) {
+                  message['model'] = null;
+                }
+                if (message.containsKey('author_id') &&
+                    message['author_id'] == false) {
+                  message['author_id'] = null;
+                }
+
                 // Include all complete records (have id and subject)
-                if (message.containsKey('id') && message.containsKey('subject')) {
+                if (message.containsKey('id') &&
+                    message.containsKey('subject')) {
                   validMessages.add(message);
                 }
               } catch (e) {
@@ -5112,21 +5161,22 @@ class OdooService {
               }
             }
           }
-          
-          print('✅ Extracted ${validMessages.length} complete notification records');
-          
+
+          print(
+              '✅ Extracted ${validMessages.length} complete notification records');
+
           // Sort by create_date descending to ensure most recent first
           // If dates are equal, sort by ID descending (newest ID = most recent)
           validMessages.sort((a, b) {
             final dateA = a['create_date']?.toString() ?? '';
             final dateB = b['create_date']?.toString() ?? '';
-            
+
             // First compare by date
             final dateCompare = dateB.compareTo(dateA);
             if (dateCompare != 0) {
               return dateCompare;
             }
-            
+
             // If dates are equal, sort by ID (newest ID first)
             final idA = a['id'] ?? 0;
             final idB = b['id'] ?? 0;
@@ -5135,11 +5185,13 @@ class OdooService {
             }
             return dateCompare;
           });
-          
+
           print('📊 Final result: ${validMessages.length} notifications');
           if (validMessages.isNotEmpty) {
-            print('📅 Most recent notification: ID ${validMessages.first['id']}, Date: ${validMessages.first['create_date']}, Subject: ${validMessages.first['subject']}');
-            print('📅 Oldest notification: ID ${validMessages.last['id']}, Date: ${validMessages.last['create_date']}, Subject: ${validMessages.last['subject']}');
+            print(
+                '📅 Most recent notification: ID ${validMessages.first['id']}, Date: ${validMessages.first['create_date']}, Subject: ${validMessages.first['subject']}');
+            print(
+                '📅 Oldest notification: ID ${validMessages.last['id']}, Date: ${validMessages.last['create_date']}, Subject: ${validMessages.last['subject']}');
           }
           return validMessages;
         }
@@ -5149,6 +5201,48 @@ class OdooService {
     } catch (e) {
       print('Error fetching sent notifications: $e');
       return [];
+    }
+  }
+
+  // Get partner names from partner IDs
+  Future<Map<int, String>> getPartnerNames(List<int> partnerIds) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    if (partnerIds.isEmpty) {
+      return {};
+    }
+
+    try {
+      final partners = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'res.partner',
+        'read',
+        [partnerIds],
+        {
+          'fields': ['name']
+        }
+      ]);
+
+      final Map<int, String> namesMap = {};
+      if (partners is List) {
+        for (var partner in partners) {
+          if (partner is Map) {
+            final id = partner['id'] as int?;
+            final name = partner['name']?.toString() ?? 'Inconnu';
+            if (id != null) {
+              namesMap[id] = name;
+            }
+          }
+        }
+      }
+      return namesMap;
+    } catch (e) {
+      print('Error fetching partner names: $e');
+      return {};
     }
   }
 

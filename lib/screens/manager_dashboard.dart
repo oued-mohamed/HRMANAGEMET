@@ -207,6 +207,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   LastNotificationWidget(
                     notification: _lastNotification,
                     isLoading: _isLoadingLastNotification,
+                    notificationsRoute: '/manager-notifications',
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                   ),
                   const SizedBox(height: 16),

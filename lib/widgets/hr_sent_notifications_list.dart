@@ -13,6 +13,8 @@ class HRSentNotificationsListState extends State<HRSentNotificationsList> {
   final OdooService _odooService = OdooService();
   List<Map<String, dynamic>> _sentNotifications = [];
   bool _isLoading = true;
+  // Cache for partner names: notification_id -> recipient_info
+  final Map<int, String> _recipientInfoCache = {};
 
   @override
   void initState() {
@@ -38,6 +40,9 @@ class HRSentNotificationsListState extends State<HRSentNotificationsList> {
       final groupedNotifications = _groupNotifications(notifications);
       print(
           '📊 Grouped ${notifications.length} notifications to ${groupedNotifications.length} entries');
+
+      // Preload recipient names for all notifications
+      await _preloadRecipientNames(groupedNotifications);
 
       if (mounted) {
         setState(() {
@@ -163,15 +168,71 @@ class HRSentNotificationsListState extends State<HRSentNotificationsList> {
     return result;
   }
 
-  // Count recipients to determine if sent to all or specific employees
-  String _getRecipientInfo(Map<String, dynamic> notification) {
-    final partnerIds = notification['partner_ids'];
+  // Preload recipient names for all notifications
+  Future<void> _preloadRecipientNames(
+      List<Map<String, dynamic>> notifications) async {
+    final Set<int> allPartnerIds = {};
 
-    if (partnerIds == null || partnerIds == false) {
-      return 'Aucun destinataire';
+    // Collect all partner IDs
+    for (var notification in notifications) {
+      final partnerIds = notification['partner_ids'];
+      if (partnerIds != null && partnerIds != false) {
+        List<int> idsList = _extractPartnerIds(partnerIds);
+        allPartnerIds.addAll(idsList);
+      }
     }
 
-    int count = 0;
+    if (allPartnerIds.isEmpty) return;
+
+    // Fetch all partner names in one batch
+    try {
+      final namesMap =
+          await _odooService.getPartnerNames(allPartnerIds.toList());
+
+      // Build recipient info for each notification
+      for (var notification in notifications) {
+        final notificationId = notification['id'] as int?;
+        if (notificationId == null) continue;
+
+        final partnerIds = notification['partner_ids'];
+        if (partnerIds == null || partnerIds == false) {
+          _recipientInfoCache[notificationId] = 'Aucun destinataire';
+          continue;
+        }
+
+        final idsList = _extractPartnerIds(partnerIds);
+        if (idsList.isEmpty) {
+          _recipientInfoCache[notificationId] = 'Aucun destinataire';
+        } else if (idsList.length > 5) {
+          _recipientInfoCache[notificationId] = 'Envoyé à tous les employés';
+        } else {
+          // Get names for these IDs
+          final names = idsList
+              .map((id) => namesMap[id] ?? 'Inconnu')
+              .where((name) => name != 'Inconnu')
+              .toList();
+
+          if (names.isEmpty) {
+            _recipientInfoCache[notificationId] =
+                '${idsList.length} destinataire${idsList.length > 1 ? 's' : ''}';
+          } else if (names.length == 1) {
+            _recipientInfoCache[notificationId] = names.first;
+          } else if (names.length <= 3) {
+            _recipientInfoCache[notificationId] = names.join(', ');
+          } else {
+            _recipientInfoCache[notificationId] =
+                '${names.take(2).join(', ')} et ${names.length - 2} autre${names.length - 2 > 1 ? 's' : ''}';
+          }
+        }
+      }
+    } catch (e) {
+      print('Error preloading recipient names: $e');
+    }
+  }
+
+  // Extract partner IDs from various formats
+  List<int> _extractPartnerIds(dynamic partnerIds) {
+    final List<int> idsList = [];
 
     if (partnerIds is List) {
       // Check if it's Odoo command format [6, 0, [id1, id2, ...]]
@@ -180,27 +241,46 @@ class HRSentNotificationsListState extends State<HRSentNotificationsList> {
           partnerIds[1] == 0 &&
           partnerIds[2] is List) {
         // Odoo command format: extract IDs from third element
-        final idsList = partnerIds[2] as List;
-        count = idsList.length;
+        final ids = partnerIds[2] as List;
+        for (var id in ids) {
+          if (id is int) idsList.add(id);
+        }
       } else if (partnerIds.isNotEmpty) {
         // Simple list format: could be list of IDs or list of [id, name] tuples
-        // Check if first element is a list (tuple format)
-        if (partnerIds[0] is List) {
-          count = partnerIds.length;
-        } else {
-          // Assume it's a list of IDs
-          count = partnerIds.length;
+        for (var item in partnerIds) {
+          if (item is int) {
+            idsList.add(item);
+          } else if (item is List && item.isNotEmpty && item[0] is int) {
+            idsList.add(item[0] as int);
+          }
         }
       }
     }
 
-    if (count == 0) {
+    return idsList;
+  }
+
+  // Get recipient info with names (now uses cache)
+  String _getRecipientInfo(Map<String, dynamic> notification) {
+    final notificationId = notification['id'] as int?;
+    if (notificationId != null &&
+        _recipientInfoCache.containsKey(notificationId)) {
+      return _recipientInfoCache[notificationId]!;
+    }
+
+    // Fallback if cache not ready yet
+    final partnerIds = notification['partner_ids'];
+    if (partnerIds == null || partnerIds == false) {
       return 'Aucun destinataire';
-    } else if (count > 5) {
-      // When sent to many recipients (>5), assume it's "all employees"
+    }
+
+    final idsList = _extractPartnerIds(partnerIds);
+    if (idsList.isEmpty) {
+      return 'Aucun destinataire';
+    } else if (idsList.length > 5) {
       return 'Envoyé à tous les employés';
     } else {
-      return '$count destinataire${count > 1 ? 's' : ''}';
+      return '${idsList.length} destinataire${idsList.length > 1 ? 's' : ''}';
     }
   }
 
