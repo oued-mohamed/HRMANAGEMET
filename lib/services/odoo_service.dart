@@ -326,7 +326,7 @@ class OdooService {
       print('Employee ID: $employeeId');
       print('Current user ID: $_userId');
 
-      // Get employee's user ID first
+      // Get employee's user ID and partner ID
       final employeeData = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -345,7 +345,41 @@ class OdooService {
 
         if (userId is List && userId.isNotEmpty) {
           print('Searching for notifications for user ID: ${userId[0]}');
-          // Fetch mail.message notifications sent to this user
+          
+          // Get the partner_id from the user (partner_ids field contains res.partner IDs, not res.users IDs)
+          int? partnerId;
+          try {
+            final userInfo = await _callRPC('object', 'execute_kw', [
+              database,
+              _userId,
+              _password,
+              'res.users',
+              'read',
+              [userId[0]],
+              {
+                'fields': ['partner_id']
+              }
+            ]);
+
+            if (userInfo is List && userInfo.isNotEmpty) {
+              final userPartner = userInfo.first['partner_id'];
+              if (userPartner is List && userPartner.isNotEmpty) {
+                partnerId = userPartner[0] as int;
+                print('Found partner ID: $partnerId for user ID: ${userId[0]}');
+              }
+            }
+          } catch (e) {
+            print('Error getting partner_id from user: $e');
+          }
+
+          // If no partner_id found, return empty list
+          if (partnerId == null) {
+            print('⚠️ No partner_id found for user, cannot fetch notifications');
+            return [];
+          }
+          
+          // Fetch mail.message notifications sent to this user's partner
+          // This matches the original logic from GitHub
           final notifications = await _callRPC('object', 'execute_kw', [
             database,
             _userId,
@@ -354,20 +388,8 @@ class OdooService {
             'search_read',
             [
               [
-                [
-                  'partner_ids',
-                  'in',
-                  [userId[0]]
-                ],
+                ['partner_ids', 'in', [partnerId]],
                 ['message_type', '=', 'notification'],
-                // Temporarily remove date filter to test
-                // [
-                //   'create_date',
-                //   '>=',
-                //   DateTime.now()
-                //       .subtract(const Duration(days: 7))
-                //       .toIso8601String()
-                // ]
               ]
             ],
             {
@@ -378,10 +400,10 @@ class OdooService {
                 'create_date',
                 'partner_ids',
                 'model',
-                'res_id'
+                'res_id',
               ],
               'order': 'create_date desc',
-              'limit': 10,
+              'limit': 50,
               'context': {'lang': 'fr_FR'}
             }
           ]);
@@ -414,6 +436,8 @@ class OdooService {
             }
             return validNotifications;
           }
+          
+          return [];
         }
       }
 
@@ -733,6 +757,7 @@ class OdooService {
   }
 
   // Send notification to specific employee using mail.message
+  // Uses the same module (mail.message) and logic as getSentNotifications()
   Future<bool> sendNotificationToEmployee({
     required int employeeId,
     required String title,
@@ -743,7 +768,7 @@ class OdooService {
     print('Sending notification to employee $employeeId');
 
     try {
-      // Get employee's user ID
+      // Get employee's user_id and work_contact_id
       final employeeData = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -752,56 +777,108 @@ class OdooService {
         'read',
         [employeeId],
         {
-          'fields': ['user_id']
+          'fields': [
+            'user_id',
+            'work_contact_id',
+          ]
         }
       ]);
 
       if (employeeData is List && employeeData.isNotEmpty) {
-        final userData = employeeData.first;
-        final userId = userData['user_id'];
+        final empData = employeeData.first;
+        final userId = empData['user_id'];
+        dynamic partnerId;
 
+        // Try to get partner_id from user if user_id exists
         if (userId is List && userId.isNotEmpty) {
-          print(
-              'Sending notification to user ID: ${userId[0]} for employee $employeeId');
-          // Create mail message notification
-          final messageData = {
-            'subject': title,
-            'body': message,
-            'message_type': 'notification',
-            'partner_ids': [
-              [
-                6,
-                0,
-                [userId[0]]
-              ]
-            ], // Send to employee's user
-            'model': 'hr.employee',
-            'res_id': employeeId,
-            'date': _formatDateForOdoo(DateTime.now()),
-          };
+          try {
+            final userData = await _callRPC('object', 'execute_kw', [
+              database,
+              _userId,
+              _password,
+              'res.users',
+              'read',
+              [userId[0]],
+              {
+                'fields': ['partner_id']
+              }
+            ]);
 
-          final result = await _callRPC('object', 'execute_kw', [
-            database,
-            _userId,
-            _password,
-            'mail.message', // Use existing mail.message model
-            'create',
-            [messageData],
-            {
-              'context': {'lang': 'fr_FR'}
+            if (userData is List && userData.isNotEmpty) {
+              final userPartnerId = userData.first['partner_id'];
+              if (userPartnerId is List && userPartnerId.isNotEmpty) {
+                partnerId = userPartnerId[0];
+                print(
+                    'Sending notification to user ID: ${userId[0]} (partner: $partnerId) for employee $employeeId');
+              }
             }
-          ]);
-
-          print('Notification sent result: $result');
-          return result != null;
+          } catch (e) {
+            print('Error getting user partner_id: $e');
+          }
         }
+
+        // Fallback: Try work_contact_id
+        if (partnerId == null) {
+          partnerId = empData['work_contact_id'];
+          if (partnerId is List && partnerId.isNotEmpty) {
+            partnerId = partnerId[0];
+            print(
+                'Using work_contact_id (partner: $partnerId) for employee $employeeId');
+          }
+        }
+
+        // Create mail.message notification - same structure as history query expects
+        // The author_id will be automatically set to _userId (current logged-in user)
+        List<int> partnerIds = [];
+        if (partnerId != null && partnerId is int) {
+          partnerIds.add(partnerId);
+        }
+
+        final messageData = <String, dynamic>{
+          'subject': title,
+          'body': message,
+          'message_type': 'notification', // Must match history query filter
+          'model': 'hr.employee',
+          'res_id': employeeId,
+          'date': _formatDateForOdoo(DateTime.now()),
+          // Explicitly set author_id to ensure it's tracked correctly
+          'author_id': _userId,
+        };
+
+        // Add partner_ids if we have valid partner IDs
+        // This ensures the notification appears in employee's inbox and history shows recipient count
+        if (partnerIds.isNotEmpty) {
+          messageData['partner_ids'] = [
+            [6, 0, partnerIds]
+          ];
+          print('✅ Sending to partner IDs: $partnerIds');
+        } else {
+          print(
+              '⚠️ No partner_id found, creating notification anyway (will show as "Aucun destinataire" in history)');
+        }
+
+        // Create the mail.message record
+        // author_id will be automatically set to _userId by Odoo
+        final result = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'mail.message',
+          'create',
+          [messageData],
+          {
+            'context': {'lang': 'fr_FR'}
+          }
+        ]);
+
+        print('✅ Notification sent result: $result');
+        return result != null;
       }
 
-      print('Could not find user for employee $employeeId');
+      print('⚠️ Could not find employee data for employee $employeeId');
       return false;
     } catch (e) {
-      print('Error sending notification: $e');
-      // Don't rethrow, just return false to allow task creation to continue
+      print('❌ Error sending notification: $e');
       return false;
     }
   }
@@ -4965,71 +5042,106 @@ class OdooService {
     }
 
     try {
-      // Get current user's employee ID
-      final employeeId = await getCurrentEmployeeId();
-      print('Fetching sent notifications for HR employee: $employeeId');
+      print('Fetching sent notifications for current user: $_userId');
 
-      // Get the user ID associated with the employee
-      final employeeData = await _callRPC('object', 'execute_kw', [
+      // Fetch mail.message records created by the current logged-in user
+      // Uses the same module and logic as sendNotificationToEmployee()
+      // The author_id is automatically set to the user making the RPC call (_userId)
+      
+      // Fetch mail.message records created by the current logged-in user
+      // Use search then read (same pattern as other methods) to avoid XML-RPC format issues
+      // Don't filter by model - get all notifications sent by this user
+      final messageIds = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
         _password,
-        'hr.employee',
-        'read',
-        [employeeId],
+        'mail.message',
+        'search',
+        [
+          [
+            ['author_id', '=', _userId],
+            ['message_type', '=', 'notification'],
+          ]
+        ],
         {
-          'fields': ['user_id']
+          'order': 'create_date desc, id desc',
+          'limit': 0, // 0 means no limit - get all notifications
         }
       ]);
 
-      if (employeeData is List && employeeData.isNotEmpty) {
-        final userData = employeeData.first;
-        final userId = userData['user_id'];
+      print('📊 Found ${messageIds is List ? messageIds.length : 0} message IDs');
 
-        if (userId is List && userId.isNotEmpty) {
-          // Fetch mail.message records created by this user
-          final sentMessages = await _callRPC('object', 'execute_kw', [
-            database,
-            _userId,
-            _password,
-            'mail.message',
-            'search_read',
-            [
-              [
-                ['author_id', '=', userId[0]],
-                ['message_type', '=', 'notification'],
-              ]
+      if (messageIds is List && messageIds.isNotEmpty) {
+        // Read full message data for all IDs
+        final sentMessages = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'mail.message',
+          'read',
+          [messageIds],
+          {
+            'fields': [
+              'id',
+              'subject',
+              'body',
+              'create_date',
+              'partner_ids',
+              'author_id',
+              'model',
             ],
-            {
-              'fields': [
-                'id',
-                'subject',
-                'body',
-                'create_date',
-                'partner_ids',
-                'author_id',
-              ],
-              'order': 'create_date desc',
-              'limit': 50,
-            }
-          ]);
+          }
+        ]);
 
-          print(
-              'Found ${sentMessages is List ? sentMessages.length : 0} sent notifications');
+        print('📦 Read ${sentMessages is List ? sentMessages.length : 0} message records');
 
-          if (sentMessages is List) {
-            final List<Map<String, dynamic>> validMessages = [];
-            for (var item in sentMessages) {
-              if (item is Map) {
-                try {
-                  validMessages.add(Map<String, dynamic>.from(item));
-                } catch (e) {
-                  print('Error converting message to Map: $e');
+        if (sentMessages is List) {
+          final List<Map<String, dynamic>> validMessages = [];
+          
+          // Process each message record
+          for (var item in sentMessages) {
+            if (item is Map) {
+              try {
+                final message = Map<String, dynamic>.from(item);
+                // Include all complete records (have id and subject)
+                if (message.containsKey('id') && message.containsKey('subject')) {
+                  validMessages.add(message);
                 }
+              } catch (e) {
+                print('⚠️ Error converting message: $e');
               }
             }
-            return validMessages;
           }
+          
+          print('✅ Extracted ${validMessages.length} complete notification records');
+          
+          // Sort by create_date descending to ensure most recent first
+          // If dates are equal, sort by ID descending (newest ID = most recent)
+          validMessages.sort((a, b) {
+            final dateA = a['create_date']?.toString() ?? '';
+            final dateB = b['create_date']?.toString() ?? '';
+            
+            // First compare by date
+            final dateCompare = dateB.compareTo(dateA);
+            if (dateCompare != 0) {
+              return dateCompare;
+            }
+            
+            // If dates are equal, sort by ID (newest ID first)
+            final idA = a['id'] ?? 0;
+            final idB = b['id'] ?? 0;
+            if (idA is int && idB is int) {
+              return idB.compareTo(idA);
+            }
+            return dateCompare;
+          });
+          
+          print('📊 Final result: ${validMessages.length} notifications');
+          if (validMessages.isNotEmpty) {
+            print('📅 Most recent notification: ID ${validMessages.first['id']}, Date: ${validMessages.first['create_date']}, Subject: ${validMessages.first['subject']}');
+            print('📅 Oldest notification: ID ${validMessages.last['id']}, Date: ${validMessages.last['create_date']}, Subject: ${validMessages.last['subject']}');
+          }
+          return validMessages;
         }
       }
 

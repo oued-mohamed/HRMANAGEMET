@@ -6,10 +6,10 @@ class HRSentNotificationsList extends StatefulWidget {
 
   @override
   State<HRSentNotificationsList> createState() =>
-      _HRSentNotificationsListState();
+      HRSentNotificationsListState();
 }
 
-class _HRSentNotificationsListState extends State<HRSentNotificationsList> {
+class HRSentNotificationsListState extends State<HRSentNotificationsList> {
   final OdooService _odooService = OdooService();
   List<Map<String, dynamic>> _sentNotifications = [];
   bool _isLoading = true;
@@ -20,33 +20,188 @@ class _HRSentNotificationsListState extends State<HRSentNotificationsList> {
     _loadSentNotifications();
   }
 
+  // Public method to refresh notifications from parent
+  Future<void> refresh() async {
+    print('🔄 HRSentNotificationsList: refresh() called');
+    await _loadSentNotifications();
+  }
+
   Future<void> _loadSentNotifications() async {
+    print('📥 HRSentNotificationsList: Loading sent notifications...');
     setState(() => _isLoading = true);
     try {
       final notifications = await _odooService.getSentNotifications();
-      setState(() {
-        _sentNotifications = notifications;
-        _isLoading = false;
-      });
+      print(
+          '✅ HRSentNotificationsList: Loaded ${notifications.length} notifications');
+
+      // Group notifications that were sent to all employees
+      final groupedNotifications = _groupNotifications(notifications);
+      print(
+          '📊 Grouped ${notifications.length} notifications to ${groupedNotifications.length} entries');
+
+      if (mounted) {
+        setState(() {
+          _sentNotifications = groupedNotifications;
+          _isLoading = false;
+        });
+        print(
+            '✅ HRSentNotificationsList: State updated with ${_sentNotifications.length} notifications');
+      }
     } catch (e) {
-      print('Error loading sent notifications: $e');
-      setState(() => _isLoading = false);
+      print('❌ HRSentNotificationsList: Error loading sent notifications: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  // Group notifications that were sent to all employees
+  // If multiple notifications have the same subject and were sent at the same time (within 1 minute),
+  // and there are more than 5 of them, group them into a single entry
+  List<Map<String, dynamic>> _groupNotifications(
+      List<Map<String, dynamic>> notifications) {
+    if (notifications.isEmpty) return [];
+
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    final List<Map<String, dynamic>> result = [];
+
+    // Group notifications by subject and time window (same minute)
+    for (var notification in notifications) {
+      final subject = notification['subject']?.toString() ?? 'Sans titre';
+      final createDate = notification['create_date']?.toString();
+
+      if (createDate == null || createDate == false) {
+        // If no date, treat as individual notification
+        result.add(notification);
+        continue;
+      }
+
+      try {
+        final date = DateTime.parse(createDate);
+        // Create a key based on subject and minute (ignore seconds)
+        final key =
+            '${subject}_${date.year}_${date.month}_${date.day}_${date.hour}_${date.minute}';
+
+        if (!grouped.containsKey(key)) {
+          grouped[key] = [];
+        }
+        grouped[key]!.add(notification);
+      } catch (e) {
+        // If date parsing fails, treat as individual notification
+        result.add(notification);
+      }
+    }
+
+    // Process groups
+    for (var entry in grouped.entries) {
+      final group = entry.value;
+
+      if (group.length > 5) {
+        // This looks like a notification sent to all employees
+        // Create a single merged notification entry
+        final firstNotification = group.first;
+
+        // Use the first notification's date (most recent)
+        final mergedNotification = Map<String, dynamic>.from(firstNotification);
+
+        // Combine all partner_ids from all notifications in the group
+        final allPartnerIds = <int>{};
+        for (var notif in group) {
+          final partnerIds = notif['partner_ids'];
+          if (partnerIds != null && partnerIds != false) {
+            if (partnerIds is List) {
+              // Extract IDs from Odoo command format or simple list
+              if (partnerIds.length >= 3 &&
+                  partnerIds[0] == 6 &&
+                  partnerIds[1] == 0 &&
+                  partnerIds[2] is List) {
+                final idsList = partnerIds[2] as List;
+                for (var id in idsList) {
+                  if (id is int) allPartnerIds.add(id);
+                }
+              } else if (partnerIds.isNotEmpty) {
+                for (var item in partnerIds) {
+                  if (item is int) {
+                    allPartnerIds.add(item);
+                  } else if (item is List &&
+                      item.isNotEmpty &&
+                      item[0] is int) {
+                    allPartnerIds.add(item[0] as int);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Set combined partner_ids in Odoo command format
+        mergedNotification['partner_ids'] = [6, 0, allPartnerIds.toList()];
+
+        result.add(mergedNotification);
+        print(
+            '📦 Grouped ${group.length} notifications into 1 entry: "${mergedNotification['subject']}"');
+      } else {
+        // Less than 5 notifications with same subject/time - treat as individual
+        result.addAll(group);
+      }
+    }
+
+    // Sort by date descending (most recent first)
+    result.sort((a, b) {
+      final dateA = a['create_date']?.toString() ?? '';
+      final dateB = b['create_date']?.toString() ?? '';
+      if (dateA.isEmpty || dateB.isEmpty) return 0;
+      try {
+        final dtA = DateTime.parse(dateA);
+        final dtB = DateTime.parse(dateB);
+        return dtB.compareTo(dtA);
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    return result;
   }
 
   // Count recipients to determine if sent to all or specific employees
   String _getRecipientInfo(Map<String, dynamic> notification) {
     final partnerIds = notification['partner_ids'];
-    if (partnerIds is List && partnerIds.isNotEmpty) {
-      final count = partnerIds.length;
-      // If more than 5 recipients, likely sent to all employees
-      if (count > 5) {
-        return 'Tous les employés ($count destinataires)';
-      } else {
-        return 'Employés sélectionnés ($count destinataires)';
+
+    if (partnerIds == null || partnerIds == false) {
+      return 'Aucun destinataire';
+    }
+
+    int count = 0;
+
+    if (partnerIds is List) {
+      // Check if it's Odoo command format [6, 0, [id1, id2, ...]]
+      if (partnerIds.length >= 3 &&
+          partnerIds[0] == 6 &&
+          partnerIds[1] == 0 &&
+          partnerIds[2] is List) {
+        // Odoo command format: extract IDs from third element
+        final idsList = partnerIds[2] as List;
+        count = idsList.length;
+      } else if (partnerIds.isNotEmpty) {
+        // Simple list format: could be list of IDs or list of [id, name] tuples
+        // Check if first element is a list (tuple format)
+        if (partnerIds[0] is List) {
+          count = partnerIds.length;
+        } else {
+          // Assume it's a list of IDs
+          count = partnerIds.length;
+        }
       }
     }
-    return 'Aucun destinataire';
+
+    if (count == 0) {
+      return 'Aucun destinataire';
+    } else if (count > 5) {
+      // When sent to many recipients (>5), assume it's "all employees"
+      return 'Envoyé à tous les employés';
+    } else {
+      return '$count destinataire${count > 1 ? 's' : ''}';
+    }
   }
 
   // Format date
@@ -58,6 +213,24 @@ class _HRSentNotificationsListState extends State<HRSentNotificationsList> {
     } catch (e) {
       return dateStr.toString();
     }
+  }
+
+  // Helper to strip HTML tags from notification message
+  String _stripHtmlTags(String htmlString) {
+    if (htmlString.isEmpty) return '';
+
+    String text = htmlString.replaceAll(RegExp(r'<[^>]*>'), '');
+    text = text
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    return text;
   }
 
   @override
@@ -98,11 +271,13 @@ class _HRSentNotificationsListState extends State<HRSentNotificationsList> {
         itemBuilder: (context, index) {
           final notification = _sentNotifications[index];
           final subject = notification['subject']?.toString() ?? 'Sans titre';
-          final body = notification['body']?.toString() ?? '';
+          final bodyRaw = notification['body']?.toString() ?? '';
+          final body = _stripHtmlTags(bodyRaw); // Clean HTML tags
           final date = _formatDate(notification['create_date']?.toString());
           final recipientInfo = _getRecipientInfo(notification);
 
-          final isAllEmployees = recipientInfo.contains('Tous les employés');
+          final isAllEmployees =
+              recipientInfo.contains('Envoyé à tous les employés');
 
           return Card(
             margin: const EdgeInsets.only(bottom: 12),

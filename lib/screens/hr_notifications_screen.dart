@@ -14,6 +14,8 @@ class _HRNotificationsScreenState extends State<HRNotificationsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<HRSentNotificationsListState> _historyListKey =
+      GlobalKey<HRSentNotificationsListState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   List<Map<String, dynamic>> _employees = [];
@@ -121,11 +123,41 @@ class _HRNotificationsScreenState extends State<HRNotificationsScreen>
         ),
       );
 
-      // Clear form
+      // Clear form immediately
       _titleController.clear();
       _messageController.clear();
       _selectedEmployeeIds.clear();
       setState(() {});
+
+      // Refresh history after sending notifications
+      // Wait longer to allow Odoo to process and commit all messages to database
+      // The delay depends on how many notifications were sent
+      final delayMs = targetEmployeeIds.length > 10
+          ? 2000 +
+              (targetEmployeeIds.length * 100) // More notifications = more time
+          : 1500;
+
+      print('⏳ Waiting ${delayMs}ms before refreshing history...');
+
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        if (!mounted) return;
+
+        print('🔄 Refreshing history tab...');
+
+        if (_tabController.index == 1) {
+          // Already on history tab, refresh it
+          _historyListKey.currentState?.refresh();
+        } else {
+          // Switch to history tab and refresh
+          _tabController.animateTo(1);
+          // Wait for tab animation to complete, then refresh
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _historyListKey.currentState?.refresh();
+            }
+          });
+        }
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -299,7 +331,7 @@ class _HRNotificationsScreenState extends State<HRNotificationsScreen>
                       ),
                     ),
                     // History Tab
-                    HRSentNotificationsList(),
+                    HRSentNotificationsList(key: _historyListKey),
                   ],
                 ),
               ),
