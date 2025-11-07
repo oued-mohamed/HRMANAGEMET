@@ -657,39 +657,22 @@ class _EmployeeNotificationsScreenState
             ),
             const SizedBox(height: 20),
 
-            // Task header
+            // Notification header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: _notificationService.getPriorityColor(
-                              notification['priority']?.toString() ??
-                                  'medium_priority'),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          notification['title'],
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2d3436),
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    notification['title'],
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2d3436),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Assigné par ${notification['assignedByName']}',
+                    'De ${notification['assignedByName']}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -701,85 +684,52 @@ class _EmployeeNotificationsScreenState
 
             const SizedBox(height: 24),
 
-            // Task details
+            // Notification details
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 children: [
                   _buildDetailRow(
                     Icons.description,
-                    'Description',
+                    'Message',
                     notification['description'],
                   ),
                   _buildDetailRow(
-                    Icons.flag,
-                    'Priorité',
-                    _notificationService.getPriorityDisplayName(
-                        notification['priority']?.toString() ??
-                            'medium_priority'),
-                  ),
-                  _buildDetailRow(
                     Icons.calendar_today,
-                    'Date d\'échéance',
-                    _formatDate(notification['dueDate']),
-                  ),
-                  _buildDetailRow(
-                    Icons.access_time,
-                    'Assigné le',
+                    'Date de réception',
                     _formatDate(notification['createdAt']),
                   ),
                 ],
               ),
             ),
 
-            // Action buttons
+            // Action button
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          NavigationHelpers.backToPrevious(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: Color(0xFF35BF8C)),
-                      ),
-                      child: const Text(
-                        'Fermer',
-                        style: TextStyle(color: Color(0xFF35BF8C)),
-                      ),
-                    ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF35BF8C),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Tâche marquée comme "En cours"'),
-                            backgroundColor: Color(0xFF35BF8C),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35BF8C),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        'Commencer',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
+                  child: const Text(
+                    'Fermer',
+                    style: TextStyle(color: Colors.white),
                   ),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      // Reload data after modal is dismissed to reflect the read status
+      if (mounted) {
+        _loadOdooData();
+      }
+    });
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {

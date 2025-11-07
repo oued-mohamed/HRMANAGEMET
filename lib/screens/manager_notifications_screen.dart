@@ -125,29 +125,6 @@ class _ManagerNotificationsScreenState
     _allItems = allItems;
   }
 
-  Future<void> _markAllAsRead() async {
-    try {
-      // Mark all unread Odoo notifications as read
-      final unreadNotifications =
-          _odooNotifications.where((n) => n['is_read'] == false).toList();
-
-      for (var notification in unreadNotifications) {
-        final messageId = notification['id'] as int;
-        await _odooService.markNotificationAsRead(messageId);
-      }
-
-      // Update local state
-      setState(() {
-        for (var notification in _odooNotifications) {
-          notification['is_read'] = true;
-        }
-        _updateAllItems();
-      });
-    } catch (e) {
-      print('Error marking all notifications as read: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
@@ -219,40 +196,20 @@ class _ManagerNotificationsScreenState
                             .where((item) => item['isRead'] == false)
                             .length >
                         0)
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${_allItems.where((item) => item['isRead'] == false).length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_allItems.where((item) => item['isRead'] == false).length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              onPressed: _markAllAsRead,
-                              icon: const Icon(
-                                Icons.done_all,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              tooltip: 'Marquer tout comme lu',
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                   ],
                 ),
@@ -486,33 +443,9 @@ class _ManagerNotificationsScreenState
   }
 
   void _showNotificationDetails(
-      Map<String, dynamic> notification, AppLocalizations localizations) async {
+      Map<String, dynamic> notification, AppLocalizations localizations) {
     // Mark as read when opened
-    final notificationId = notification['id'];
-
-    // If it's an Odoo notification, mark it as read in Odoo
-    if (notification['isOdooNotification'] == true && notificationId is int) {
-      try {
-        final success =
-            await _odooService.markNotificationAsRead(notificationId);
-        if (success) {
-          // Update local state
-          final index =
-              _odooNotifications.indexWhere((n) => n['id'] == notificationId);
-          if (index != -1) {
-            setState(() {
-              _odooNotifications[index]['is_read'] = true;
-              _updateAllItems();
-            });
-          }
-        }
-      } catch (e) {
-        print('Error marking notification as read in Odoo: $e');
-      }
-    } else {
-      // For local notifications, use the notification service
-      _notificationService.markAsRead(notificationId.toString());
-    }
+    _notificationService.markAsRead(notification['id']);
 
     showModalBottomSheet(
       context: context,
