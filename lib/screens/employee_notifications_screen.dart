@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
-import '../utils/navigation_helpers.dart';
 import '../widgets/employee_drawer.dart';
 
 class EmployeeNotificationsScreen extends StatefulWidget {
@@ -144,7 +143,7 @@ class _EmployeeNotificationsScreenState
         }
         _updateAllItems();
       });
-      
+
       print('✅ All notifications marked as read');
     } catch (e) {
       print('❌ Error marking all notifications as read: $e');
@@ -195,13 +194,22 @@ class _EmployeeNotificationsScreenState
                       ),
                       child: IconButton(
                         onPressed: () {
-                          // Check if we can pop (meaning there's a previous route)
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.pop(context);
-                          } else {
-                            // If we can't pop, go back to menu (since user likely came from menu)
-                            NavigationHelpers.backToMenu(context);
-                          }
+                          // Always navigate back to employee menu safely
+                          // This prevents accidentally going to login/welcome screen
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/employee-menu',
+                            (route) {
+                              final routeName = route.settings.name;
+                              // Keep only safe authenticated routes
+                              // This ensures we don't remove login/company-selection
+                              // but also don't end up at welcome screen
+                              return routeName == '/employee-menu' ||
+                                  routeName == '/employee-dashboard' ||
+                                  routeName == '/login' ||
+                                  routeName == '/company-selection';
+                            },
+                          );
                         },
                         icon: const Icon(Icons.arrow_back,
                             color: Colors.white, size: 26),
@@ -554,7 +562,8 @@ class _EmployeeNotificationsScreenState
         if (success) {
           print('✅ Notification $notificationId marked as read in Odoo');
         } else {
-          print('⚠️ Failed to mark notification $notificationId as read in Odoo');
+          print(
+              '⚠️ Failed to mark notification $notificationId as read in Odoo');
         }
       }).catchError((e) {
         print('❌ Error marking notification as read: $e');
