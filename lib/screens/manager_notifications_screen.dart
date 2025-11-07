@@ -125,6 +125,29 @@ class _ManagerNotificationsScreenState
     _allItems = allItems;
   }
 
+  Future<void> _markAllAsRead() async {
+    try {
+      // Mark all unread Odoo notifications as read
+      final unreadNotifications =
+          _odooNotifications.where((n) => n['is_read'] == false).toList();
+
+      for (var notification in unreadNotifications) {
+        final messageId = notification['id'] as int;
+        await _odooService.markNotificationAsRead(messageId);
+      }
+
+      // Update local state
+      setState(() {
+        for (var notification in _odooNotifications) {
+          notification['is_read'] = true;
+        }
+        _updateAllItems();
+      });
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
@@ -196,20 +219,40 @@ class _ManagerNotificationsScreenState
                             .where((item) => item['isRead'] == false)
                             .length >
                         0)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${_allItems.where((item) => item['isRead'] == false).length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${_allItems.where((item) => item['isRead'] == false).length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              onPressed: _markAllAsRead,
+                              icon: const Icon(
+                                Icons.done_all,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              tooltip: 'Marquer tout comme lu',
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),
@@ -321,8 +364,6 @@ class _ManagerNotificationsScreenState
     final isUnread = notification['isRead'] == false;
     final priorityColor = _notificationService.getPriorityColor(
         notification['priority']?.toString() ?? 'medium_priority');
-    final notificationType = notification['type'] ?? 'general';
-    final typeIcon = _getNotificationTypeIcon(notificationType);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -353,22 +394,9 @@ class _ManagerNotificationsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with type icon, priority and status
+                // Header with priority and status
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: priorityColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        typeIcon,
-                        color: priorityColor,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         notification['title'],
@@ -385,13 +413,13 @@ class _ManagerNotificationsScreenState
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: priorityColor.withOpacity(0.1),
+                          color: const Color(0xFF35BF8C).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
+                        child: const Text(
                           'Nouveau',
                           style: TextStyle(
-                            color: priorityColor,
+                            color: Color(0xFF35BF8C),
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -457,27 +485,34 @@ class _ManagerNotificationsScreenState
     );
   }
 
-  IconData _getNotificationTypeIcon(String type) {
-    switch (type) {
-      case 'meeting':
-        return Icons.meeting_room;
-      case 'training':
-        return Icons.school;
-      case 'profile_update':
-        return Icons.person_pin;
-      case 'evaluation':
-        return Icons.assessment;
-      case 'task':
-        return Icons.assignment;
-      default:
-        return Icons.notifications;
-    }
-  }
-
   void _showNotificationDetails(
-      Map<String, dynamic> notification, AppLocalizations localizations) {
+      Map<String, dynamic> notification, AppLocalizations localizations) async {
     // Mark as read when opened
-    _notificationService.markAsRead(notification['id']);
+    final notificationId = notification['id'];
+
+    // If it's an Odoo notification, mark it as read in Odoo
+    if (notification['isOdooNotification'] == true && notificationId is int) {
+      try {
+        final success =
+            await _odooService.markNotificationAsRead(notificationId);
+        if (success) {
+          // Update local state
+          final index =
+              _odooNotifications.indexWhere((n) => n['id'] == notificationId);
+          if (index != -1) {
+            setState(() {
+              _odooNotifications[index]['is_read'] = true;
+              _updateAllItems();
+            });
+          }
+        }
+      } catch (e) {
+        print('Error marking notification as read in Odoo: $e');
+      }
+    } else {
+      // For local notifications, use the notification service
+      _notificationService.markAsRead(notificationId.toString());
+    }
 
     showModalBottomSheet(
       context: context,
@@ -714,4 +749,3 @@ class _ManagerNotificationsScreenState
     return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
   }
 }
-

@@ -15,6 +15,7 @@ class EmployeeDrawer extends StatefulWidget {
 
 class _EmployeeDrawerState extends State<EmployeeDrawer> {
   int _uncompletedTasksCount = 0;
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -22,6 +23,7 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
     // Initialiser le service si nécessaire
     UserService.instance.initialize();
     _loadUncompletedTasksCount();
+    _loadUnreadNotificationsCount();
   }
 
   @override
@@ -29,6 +31,7 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
     super.didUpdateWidget(oldWidget);
     // Refresh count when widget updates
     _loadUncompletedTasksCount();
+    _loadUnreadNotificationsCount();
   }
 
   Future<void> _loadUncompletedTasksCount() async {
@@ -94,6 +97,27 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
       if (mounted) {
         setState(() {
           _uncompletedTasksCount = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUnreadNotificationsCount() async {
+    try {
+      final notifications = await OdooService().getUnreadNotifications();
+      final unreadCount =
+          notifications.where((n) => n['is_read'] == false).length;
+
+      if (mounted) {
+        setState(() {
+          _unreadNotificationsCount = unreadCount;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading notifications count: $e');
+      if (mounted) {
+        setState(() {
+          _unreadNotificationsCount = 0;
         });
       }
     }
@@ -564,59 +588,41 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
   }
 
   Widget _buildNotificationTile(AppLocalizations localizations) {
-    return StreamBuilder<int>(
-      stream: Stream.periodic(const Duration(seconds: 1))
-          .map((_) => NotificationService().unreadCount),
-      initialData: NotificationService().unreadCount,
-      builder: (context, snapshot) {
-        final unreadCount = snapshot.data ?? 0;
-
-        return ListTile(
-          leading: Stack(
-            children: [
-              const Icon(
-                Icons.notifications_outlined,
-                color: Colors.white,
+    return ListTile(
+      leading: const Icon(
+        Icons.notifications_outlined,
+        color: Colors.white,
+      ),
+      title: Text(
+        localizations.translate('notifications'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: _unreadNotificationsCount > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
               ),
-              if (unreadCount > 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              child: Text(
+                '$_unreadNotificationsCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
-            ],
-          ),
-          title: Text(
-            localizations.translate('notifications'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-          onTap: () {
-            Navigator.pop(context);
-            Navigator.pushNamed(context, '/employee-notifications');
-          },
-        );
+              ),
+            )
+          : null,
+      onTap: () async {
+        Navigator.pop(context);
+        await Navigator.pushNamed(context, '/employee-notifications');
+        // Refresh count when returning from notifications screen
+        _loadUnreadNotificationsCount();
       },
     );
   }
