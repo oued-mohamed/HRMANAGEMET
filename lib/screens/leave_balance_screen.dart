@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../utils/navigation_helpers.dart';
 import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 
@@ -57,223 +56,259 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
     final headerIconSize = isSmallScreen ? 40.0 : 48.0;
     final headerTitleSize = isSmallScreen ? 20.0 : 24.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToPrevious(context),
-        ),
-        title: const Text('Solde de mes congés'),
-        backgroundColor: const Color(0xFF000B58),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF000B58),
-              Color(0xFF35BF8C),
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/employee-menu',
+          (route) {
+            final routeName = route.settings.name;
+            return routeName == '/employee-menu' ||
+                routeName == '/employee-dashboard' ||
+                routeName == '/login' ||
+                routeName == '/company-selection';
+          },
+        );
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Always navigate back to employee menu safely
+              // This prevents accidentally going to login/welcome screen
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/employee-menu',
+                (route) {
+                  final routeName = route.settings.name;
+                  // Keep only safe authenticated routes
+                  // This ensures we don't remove login/company-selection
+                  // but also don't end up at welcome screen
+                  return routeName == '/employee-menu' ||
+                      routeName == '/employee-dashboard' ||
+                      routeName == '/login' ||
+                      routeName == '/company-selection';
+                },
+              );
+            },
           ),
+          title: const Text('Solde de mes congés'),
+          backgroundColor: const Color(0xFF000B58),
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
-        child: SafeArea(
-          child: Consumer<LeaveProvider>(
-            builder: (context, leaveProvider, child) {
-              if (leaveProvider.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                );
-              }
-
-              if (leaveProvider.error != null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.white,
-                        size: 64,
-                      ),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          leaveProvider.error!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _loadLeaveBalance,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Réessayer'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF000B58),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final balance = leaveProvider.leaveBalance;
-
-              if (balance == null || balance.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 64,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Aucun solde de congés disponible',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Veuillez contacter les RH',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return RefreshIndicator(
-                onRefresh: _loadLeaveBalance,
-                child: Center(
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 16,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF000B58),
+                Color(0xFF35BF8C),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Consumer<LeaveProvider>(
+              builder: (context, leaveProvider, child) {
+                if (leaveProvider.isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
                     ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: 800, // Max width for large screens
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Header Card
-                          Card(
-                            elevation: 8,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                  );
+                }
+
+                if (leaveProvider.error != null) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            leaveProvider.error!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
                             ),
-                            child: Container(
-                              padding: EdgeInsets.all(cardPadding),
-                              decoration: BoxDecoration(
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _loadLeaveBalance,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF000B58),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final balance = leaveProvider.leaveBalance;
+
+                if (balance == null || balance.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.white.withOpacity(0.8),
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucun solde de congés disponible',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Veuillez contacter les RH',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: _loadLeaveBalance,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 16,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 800, // Max width for large screens
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Header Card
+                            Card(
+                              elevation: 8,
+                              shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    const Color(0xFF000B58).withOpacity(0.1),
-                                    const Color(0xFF35BF8C).withOpacity(0.1),
+                              ),
+                              child: Container(
+                                padding: EdgeInsets.all(cardPadding),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      const Color(0xFF000B58).withOpacity(0.1),
+                                      const Color(0xFF35BF8C).withOpacity(0.1),
+                                    ],
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.account_balance_wallet_outlined,
+                                      size: headerIconSize,
+                                      color: const Color(0xFF000B58),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 8 : 12),
+                                    Text(
+                                      'Votre solde de congés',
+                                      style: TextStyle(
+                                        fontSize: headerTitleSize,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF000B58),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 6 : 8),
+                                    Text(
+                                      'Mis à jour: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                                      style: TextStyle(
+                                        fontSize: isSmallScreen ? 12 : 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.account_balance_wallet_outlined,
-                                    size: headerIconSize,
-                                    color: const Color(0xFF000B58),
-                                  ),
-                                  SizedBox(height: isSmallScreen ? 8 : 12),
-                                  Text(
-                                    'Votre solde de congés',
-                                    style: TextStyle(
-                                      fontSize: headerTitleSize,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF000B58),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  SizedBox(height: isSmallScreen ? 6 : 8),
-                                  Text(
-                                    'Mis à jour: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 12 : 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 24),
+
+                            // Balance Grid - 4 items per row
+                            _buildBalanceGrid(balance, isSmallScreen, context),
+
+                            SizedBox(height: isSmallScreen ? 16 : 24),
+
+                            // Leave Requests Section
+                            _buildLeaveRequestsSection(
+                                context, leaveProvider, isSmallScreen),
+
+                            SizedBox(height: isSmallScreen ? 16 : 24),
+
+                            // Info Card
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                          ),
-                          SizedBox(height: isSmallScreen ? 16 : 24),
-
-                          // Balance Grid - 4 items per row
-                          _buildBalanceGrid(balance, isSmallScreen, context),
-
-                          SizedBox(height: isSmallScreen ? 16 : 24),
-
-                          // Leave Requests Section
-                          _buildLeaveRequestsSection(
-                              context, leaveProvider, isSmallScreen),
-
-                          SizedBox(height: isSmallScreen ? 16 : 24),
-
-                          // Info Card
-                          Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: Colors.blue[700],
-                                    size: isSmallScreen ? 20 : 24,
-                                  ),
-                                  SizedBox(width: isSmallScreen ? 8 : 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Tirez vers le bas pour actualiser le solde',
-                                      style: TextStyle(
-                                        fontSize: isSmallScreen ? 12 : 14,
-                                        color: Colors.grey[700],
+                              child: Padding(
+                                padding:
+                                    EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.blue[700],
+                                      size: isSmallScreen ? 20 : 24,
+                                    ),
+                                    SizedBox(width: isSmallScreen ? 8 : 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Tirez vers le bas pour actualiser le solde',
+                                        style: TextStyle(
+                                          fontSize: isSmallScreen ? 12 : 14,
+                                          color: Colors.grey[700],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

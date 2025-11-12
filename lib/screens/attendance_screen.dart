@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/odoo_service.dart';
+import '../services/sync_service.dart';
 import '../utils/app_localizations.dart';
 import 'package:intl/intl.dart';
 
@@ -419,35 +420,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     setState(() => _isLoading = true);
 
-    try {
-      // Get available entities
-      final entities = await _odooService.getPunchingEntities();
-      int? entiteId;
+    final syncService = SyncService();
+    final isOffline = !syncService.isConnected;
 
-      if (entities.isNotEmpty) {
-        entiteId = entities[0]['id']; // Use first available entity
-        print('Using entity ID: $entiteId');
-      } else {
-        print('Warning: No entities found, attempting punch-in without entity');
-      }
+    try {
+      // Always use chantier (entity) id=5
+      const int entiteId = 5;
+      print('Using entity ID: $entiteId (chantier)');
 
       final success = await _odooService.punchIn(
         latitude: _currentPosition?.latitude ?? 0.0,
         longitude: _currentPosition?.longitude ?? 0.0,
         checkIn: DateTime.now(),
-        entiteId: entiteId, // Pass the entity ID
+        entiteId: entiteId, // Always use chantier id=5
       );
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  AppLocalizations.of(context).translate('punch_in_success')),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _checkLastAttendance();
+          // Update local state immediately for offline mode
+          final now = DateTime.now();
+          setState(() {
+            _lastAttendanceType = 'check_in';
+            _lastAttendanceTime = now;
+          });
+
+          if (isOffline) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pointage enregistré en mode hors ligne. Il sera envoyé automatiquement lorsque vous serez connecté.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    AppLocalizations.of(context).translate('punch_in_success')),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Only check server for last attendance when online
+            _checkLastAttendance();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -479,35 +495,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _executePunchIn() async {
     setState(() => _isLoading = true);
 
-    try {
-      // Get available entities
-      final entities = await _odooService.getPunchingEntities();
-      int? entiteId;
+    final syncService = SyncService();
+    final isOffline = !syncService.isConnected;
 
-      if (entities.isNotEmpty) {
-        entiteId = entities[0]['id']; // Use first available entity
-        print('Using entity ID: $entiteId');
-      } else {
-        print('Warning: No entities found, attempting punch-in without entity');
-      }
+    try {
+      // Always use chantier (entity) id=5
+      const int entiteId = 5;
+      print('Using entity ID: $entiteId (chantier)');
 
       final success = await _odooService.punchIn(
         latitude: _currentPosition?.latitude ?? 0.0,
         longitude: _currentPosition?.longitude ?? 0.0,
         checkIn: DateTime.now(),
-        entiteId: entiteId, // Pass the entity ID
+        entiteId: entiteId, // Always use chantier id=5
       );
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  AppLocalizations.of(context).translate('punch_in_success')),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _checkLastAttendance();
+          // Update local state immediately for offline mode
+          final now = DateTime.now();
+          setState(() {
+            _lastAttendanceType = 'check_in';
+            _lastAttendanceTime = now;
+          });
+
+          if (isOffline) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pointage enregistré en mode hors ligne. Il sera envoyé automatiquement lorsque vous serez connecté.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    AppLocalizations.of(context).translate('punch_in_success')),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Only check server for last attendance when online
+            _checkLastAttendance();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -539,6 +570,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _executePunchOut() async {
     setState(() => _isLoading = true);
 
+    final syncService = SyncService();
+    final isOffline = !syncService.isConnected;
+
     try {
       final success = await _odooService.punchOut(
         latitude: _currentPosition?.latitude ?? 0.0,
@@ -548,14 +582,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  AppLocalizations.of(context).translate('punch_out_success')),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _checkLastAttendance();
+          // Update local state immediately for offline mode
+          final now = DateTime.now();
+          setState(() {
+            _lastAttendanceType = 'check_out';
+            _lastAttendanceTime = now;
+          });
+
+          if (isOffline) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pointage enregistré en mode hors ligne. Il sera envoyé automatiquement lorsque vous serez connecté.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)
+                    .translate('punch_out_success')),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Only check server for last attendance when online
+            _checkLastAttendance();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -629,6 +682,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     setState(() => _isLoading = true);
 
+    final syncService = SyncService();
+    final isOffline = !syncService.isConnected;
+
     try {
       final success = await _odooService.punchOut(
         latitude: _currentPosition?.latitude ?? 0.0,
@@ -638,14 +694,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  AppLocalizations.of(context).translate('punch_out_success')),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _checkLastAttendance();
+          // Update local state immediately for offline mode
+          final now = DateTime.now();
+          setState(() {
+            _lastAttendanceType = 'check_out';
+            _lastAttendanceTime = now;
+          });
+
+          if (isOffline) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pointage enregistré en mode hors ligne. Il sera envoyé automatiquement lorsque vous serez connecté.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)
+                    .translate('punch_out_success')),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Only check server for last attendance when online
+            _checkLastAttendance();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -680,185 +755,193 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final isCheckingIn =
         _lastAttendanceType == null || _lastAttendanceType == 'check_out';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(localizations.translate('punch_in_out')),
-        backgroundColor: const Color(0xFF000B58),
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF000B58),
-              Color(0xFF35BF8C),
-            ],
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToMenu(context);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(localizations.translate('punch_in_out')),
+          backgroundColor: const Color(0xFF000B58),
+          foregroundColor: Colors.white,
         ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Location Status Card
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        _locationEnabled
-                            ? Icons.location_on
-                            : Icons.location_off,
-                        color: _locationEnabled ? Colors.green : Colors.red,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _locationEnabled
-                            ? localizations.translate('location_enabled')
-                            : localizations.translate('location_disabled'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (_currentPosition != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          'Lon: ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              // Action Buttons
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Punch In Button
-                      if (isCheckingIn)
-                        _buildActionButton(
-                          icon: Icons.login,
-                          label: localizations.translate('punch_in'),
-                          color: Colors.green,
-                          onPressed: (_isLoading || !_locationEnabled)
-                              ? null
-                              : _punchIn,
-                          isLoading: _isLoading,
-                        ),
-
-                      if (isCheckingIn) const SizedBox(height: 20),
-
-                      // Punch Out Button
-                      if (!isCheckingIn)
-                        _buildActionButton(
-                          icon: Icons.logout,
-                          label: localizations.translate('punch_out'),
-                          color: Colors.red,
-                          onPressed: (_isLoading || !_locationEnabled)
-                              ? null
-                              : _punchOut,
-                          isLoading: _isLoading,
-                        ),
-
-                      const SizedBox(height: 40),
-
-                      // Last Attendance Info
-                      if (_lastAttendanceTime != null)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                localizations.translate('last_attendance'),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _lastAttendanceType == 'check_in'
-                                    ? localizations.translate('checked_in')
-                                    : localizations.translate('checked_out'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd/MM/yyyy HH:mm')
-                                    .format(_lastAttendanceTime!),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Enable Location Button
-              if (!_locationEnabled)
+        body: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF000B58),
+                Color(0xFF35BF8C),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Location Status Card
                 Padding(
                   padding: const EdgeInsets.all(20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _requestLocationPermission,
-                      icon: const Icon(Icons.location_on),
-                      label: Text(localizations.translate('enable_location')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35BF8C),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          _locationEnabled
+                              ? Icons.location_on
+                              : Icons.location_off,
+                          color: _locationEnabled ? Colors.green : Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _locationEnabled
+                              ? localizations.translate('location_enabled')
+                              : localizations.translate('location_disabled'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (_currentPosition != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'Lon: ${_currentPosition!.longitude.toStringAsFixed(6)}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Action Buttons
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Punch In Button
+                        if (isCheckingIn)
+                          _buildActionButton(
+                            icon: Icons.login,
+                            label: localizations.translate('punch_in'),
+                            color: Colors.green,
+                            onPressed: (_isLoading || !_locationEnabled)
+                                ? null
+                                : _punchIn,
+                            isLoading: _isLoading,
+                          ),
+
+                        if (isCheckingIn) const SizedBox(height: 20),
+
+                        // Punch Out Button
+                        if (!isCheckingIn)
+                          _buildActionButton(
+                            icon: Icons.logout,
+                            label: localizations.translate('punch_out'),
+                            color: Colors.red,
+                            onPressed: (_isLoading || !_locationEnabled)
+                                ? null
+                                : _punchOut,
+                            isLoading: _isLoading,
+                          ),
+
+                        const SizedBox(height: 40),
+
+                        // Last Attendance Info
+                        if (_lastAttendanceTime != null)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  localizations.translate('last_attendance'),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _lastAttendanceType == 'check_in'
+                                      ? localizations.translate('checked_in')
+                                      : localizations.translate('checked_out'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('dd/MM/yyyy HH:mm')
+                                      .format(_lastAttendanceTime!),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Enable Location Button
+                if (!_locationEnabled)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _requestLocationPermission,
+                        icon: const Icon(Icons.location_on),
+                        label: Text(localizations.translate('enable_location')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF35BF8C),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -156,226 +156,244 @@ class _EmployeeNotificationsScreenState
     // ignore: unused_local_variable
     final localizations = AppLocalizations.of(context);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: const EmployeeDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF000B58), // Deep navy blue
-              Color(0xFF35BF8C), // Teal green
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/employee-menu',
+          (route) {
+            final routeName = route.settings.name;
+            return routeName == '/employee-menu' ||
+                routeName == '/employee-dashboard' ||
+                routeName == '/login' ||
+                routeName == '/company-selection';
+          },
+        );
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const EmployeeDrawer(),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF000B58), // Deep navy blue
+                Color(0xFF35BF8C), // Teal green
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 1.5,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  margin: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            // Always navigate back to employee menu safely
+                            // This prevents accidentally going to login/welcome screen
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/employee-menu',
+                              (route) {
+                                final routeName = route.settings.name;
+                                // Keep only safe authenticated routes
+                                // This ensures we don't remove login/company-selection
+                                // but also don't end up at welcome screen
+                                return routeName == '/employee-menu' ||
+                                    routeName == '/employee-dashboard' ||
+                                    routeName == '/login' ||
+                                    routeName == '/company-selection';
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.arrow_back,
+                              color: Colors.white, size: 26),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Notifications',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              '${_allItems.length} notifications',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_allItems
+                              .where((item) => item['isRead'] == false)
+                              .length >
+                          0)
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_allItems.where((item) => item['isRead'] == false).length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: IconButton(
+                                onPressed: _markAllAsRead,
+                                icon: const Icon(
+                                  Icons.done_all,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                tooltip: 'Marquer tout comme lu',
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        onPressed: () {
-                          // Always navigate back to employee menu safely
-                          // This prevents accidentally going to login/welcome screen
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/employee-menu',
-                            (route) {
-                              final routeName = route.settings.name;
-                              // Keep only safe authenticated routes
-                              // This ensures we don't remove login/company-selection
-                              // but also don't end up at welcome screen
-                              return routeName == '/employee-menu' ||
-                                  routeName == '/employee-dashboard' ||
-                                  routeName == '/login' ||
-                                  routeName == '/company-selection';
-                            },
-                          );
-                        },
-                        icon: const Icon(Icons.arrow_back,
-                            color: Colors.white, size: 26),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Notifications',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            '${_allItems.length} notifications',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_allItems
-                            .where((item) => item['isRead'] == false)
-                            .length >
-                        0)
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${_allItems.where((item) => item['isRead'] == false).length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              onPressed: _markAllAsRead,
-                              icon: const Icon(
-                                Icons.done_all,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              tooltip: 'Marquer tout comme lu',
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Notifications List
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : _hasError
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 64,
-                                  color: Colors.white.withOpacity(0.7),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Erreur de connexion',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Impossible de charger les notifications depuis Odoo',
-                                  style: TextStyle(
-                                    fontSize: 14,
+                // Notifications List
+                Expanded(
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : _hasError
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 64,
                                     color: Colors.white.withOpacity(0.7),
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _loadOdooData,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        Colors.white.withOpacity(0.2),
-                                    foregroundColor: Colors.white,
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Erreur de connexion',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                  child: const Text('Réessayer'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _allItems.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.notifications_none,
-                                      size: 80,
-                                      color: Colors.white.withOpacity(0.5),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Impossible de charger les notifications depuis Odoo',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white.withOpacity(0.7),
                                     ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'Aucune notification',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _loadOdooData,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Colors.white.withOpacity(0.2),
+                                      foregroundColor: Colors.white,
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Vous recevrez des notifications\nquand le RH vous enverra des messages',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                itemCount: _allItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = _allItems[index];
-                                  return _buildNotificationCard(
-                                      item, localizations);
-                                },
+                                    child: const Text('Réessayer'),
+                                  ),
+                                ],
                               ),
-              ),
-            ],
+                            )
+                          : _allItems.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.notifications_none,
+                                        size: 80,
+                                        color: Colors.white.withOpacity(0.5),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Aucune notification',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Vous recevrez des notifications\nquand le RH vous enverra des messages',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
+                                  itemCount: _allItems.length,
+                                  itemBuilder: (context, index) {
+                                    final item = _allItems[index];
+                                    return _buildNotificationCard(
+                                        item, localizations);
+                                  },
+                                ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

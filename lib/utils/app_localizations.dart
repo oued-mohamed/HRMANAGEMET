@@ -421,6 +421,7 @@ class AppLocalizations {
       'salary_information': 'Mes informations salariales',
       'my_benefits': 'Mes avantages',
       'expense_report': 'Note de frais',
+      'credit_request': 'Demande de crédit',
       'profile': 'Profil',
       'settings': 'Paramètres',
 

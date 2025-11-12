@@ -34,6 +34,7 @@ import 'screens/attendance_screen.dart';
 import 'screens/attendance_history_screen.dart';
 import 'screens/work_time_statistics_screen.dart';
 import 'screens/expense_reports_screen.dart';
+import 'screens/credit_request_screen.dart';
 import 'screens/employee_leave_requests_screen.dart';
 import 'data/models/employee_model.dart';
 import 'services/user_service.dart';
@@ -158,6 +159,7 @@ class HRManagementApp extends StatelessWidget {
               '/work-time-statistics': (context) =>
                   const WorkTimeStatisticsScreen(),
               '/expense-reports': (context) => const ExpenseReportsScreen(),
+              '/credit-request': (context) => const CreditRequestScreen(),
               '/employee-menu': (context) => const EmployeeMenuOverlay(),
               '/manager-menu': (context) => const ManagerMenuOverlay(),
               '/hr-menu': (context) => const HRMenuOverlay(),

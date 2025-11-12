@@ -132,7 +132,14 @@ class _ExpenseReportsScreenState extends State<ExpenseReportsScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToMenu(context);
+      },
+      child: Scaffold(
       key: _scaffoldKey,
       drawer: const EmployeeDrawer(),
       body: Container(
@@ -386,6 +393,7 @@ class _ExpenseReportsScreenState extends State<ExpenseReportsScreen> {
         label: const Text('Nouvelle note'),
         backgroundColor: const Color(0xFF35BF8C),
         foregroundColor: Colors.white,
+      ),
       ),
     );
   }

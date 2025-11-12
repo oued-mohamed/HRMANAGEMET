@@ -208,7 +208,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                     notification: _lastNotification,
                     isLoading: _isLoadingLastNotification,
                     notificationsRoute: '/manager-notifications',
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   const SizedBox(height: 16),
 
@@ -290,8 +290,8 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                             .translate('pending_approvals'),
                                         '${dashboardProvider.teamStats?['pending_approvals'] ?? 0}',
                                         Icons.pending_actions,
-                                        const Color(0xFFF59E0B),
-                                        const Color(0xFFD97706),
+                                        const Color(0xFF30cfd0),
+                                        const Color(0xFF22a3a4),
                                         localizations,
                                         onTap: () {
                                           Navigator.pushNamed(
@@ -492,7 +492,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    colors: [Color(0xFF30cfd0), Color(0xFF22a3a4)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -519,7 +519,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      colors: [Color(0xFF30cfd0), Color(0xFF22a3a4)],
                     ),
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -599,13 +599,13 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFFF59E0B).withOpacity(0.1),
-            const Color(0xFFD97706).withOpacity(0.1),
+            const Color(0xFF30cfd0).withOpacity(0.1),
+            const Color(0xFF22a3a4).withOpacity(0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFF59E0B).withOpacity(0.2),
+          color: const Color(0xFF30cfd0).withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -618,7 +618,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    colors: [Color(0xFF30cfd0), Color(0xFF22a3a4)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),

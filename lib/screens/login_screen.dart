@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             // Title Section
                             Text(
-                              'HR Pro',
+                              'OZIR RH',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: isSmallScreen ? 40 : 48,

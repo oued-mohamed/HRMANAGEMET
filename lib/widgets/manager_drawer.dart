@@ -3,7 +3,6 @@ import 'dart:convert';
 import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
-import '../services/odoo_service.dart';
 
 class ManagerDrawer extends StatefulWidget {
   const ManagerDrawer({super.key});
@@ -13,42 +12,11 @@ class ManagerDrawer extends StatefulWidget {
 }
 
 class _ManagerDrawerState extends State<ManagerDrawer> {
-  int _unreadNotificationsCount = 0;
-
   @override
   void initState() {
     super.initState();
     // Initialiser le service si nécessaire
     UserService.instance.initialize();
-    _loadUnreadNotificationsCount();
-  }
-
-  @override
-  void didUpdateWidget(ManagerDrawer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Refresh count when widget updates
-    _loadUnreadNotificationsCount();
-  }
-
-  Future<void> _loadUnreadNotificationsCount() async {
-    try {
-      final notifications = await OdooService().getUnreadNotifications();
-      final unreadCount =
-          notifications.where((n) => n['is_read'] == false).length;
-
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = unreadCount;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading notifications count: $e');
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = 0;
-        });
-      }
-    }
   }
 
   @override
@@ -377,24 +345,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          trailing: _unreadNotificationsCount > 0
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '$_unreadNotificationsCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )
-                              : null,
                           onTap: () async {
                             final currentRoute =
                                 ModalRoute.of(context)?.settings.name;
@@ -406,8 +356,6 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                               await Navigator.pushNamed(
                                   context, '/manager-notifications');
                             }
-                            // Refresh count when returning from notifications screen
-                            _loadUnreadNotificationsCount();
                           },
                         ),
 
@@ -465,6 +413,23 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                                   Navigator.pop(context);
                                   Navigator.pushNamed(
                                       context, '/expense-reports');
+                                }
+                              },
+                            ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('credit_request'),
+                              onTap: () {
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/manager-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/credit-request');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/credit-request');
                                 }
                               },
                             ),

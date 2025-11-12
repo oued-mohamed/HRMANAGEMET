@@ -70,7 +70,14 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToMenu(context);
+      },
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -279,6 +286,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                               ),
                             );
                           },
+                        ),
                         ),
                       ),
       ),

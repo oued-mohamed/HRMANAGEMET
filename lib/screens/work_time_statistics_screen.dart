@@ -19,7 +19,14 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToPrevious(context);
+      },
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -143,6 +150,7 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

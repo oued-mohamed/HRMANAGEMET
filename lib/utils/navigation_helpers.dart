@@ -6,77 +6,61 @@ import '../core/enums/user_role.dart';
 class NavigationHelpers {
   /// Navigate back to the appropriate screen:
   /// - If we can pop, just go back
-  /// - Otherwise, check if we came from menu and go back to menu, else go to dashboard
+  /// - Otherwise, go back to menu to ensure we stay in authenticated area
   static Future<void> backToPrevious(BuildContext context) async {
     final navigator = Navigator.of(context);
 
     // Try to pop first - if there's a previous route, just go back
     if (navigator.canPop()) {
-      // Check if the previous route is a menu route
-      final previousRoute = ModalRoute.of(context)?.settings.name;
-      if (previousRoute == '/employee-menu' || 
-          previousRoute == '/manager-menu' || 
-          previousRoute == '/hr-menu') {
-        // If current route might be from menu, check navigation history
-        // For now, just pop - if it fails, we'll go to menu
-        navigator.pop();
-        return;
-      }
       navigator.pop();
       return;
     }
 
-    // If we can't pop, try to go back to menu first (since user might have come from menu)
-    // Check navigation history to see if we came from a menu
+    // If we can't pop, check the current route to determine where to go
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    print('Cannot pop, current route: $currentRoute');
+
+    // If we're already on a menu or dashboard, stay there
+    final authenticatedRoutes = [
+      '/employee-menu',
+      '/manager-menu',
+      '/hr-menu',
+      '/employee-dashboard',
+      '/manager-dashboard',
+      '/hr-dashboard',
+    ];
+
+    if (currentRoute != null && authenticatedRoutes.contains(currentRoute)) {
+      print('Already on authenticated route, staying here');
+      return;
+    }
+
+    // If we can't pop and we're not on a safe route, go to menu
+    // This prevents accidentally going to welcome screen
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final role = auth.currentCompany?.userRole ?? UserRole.employee;
-
-      // Check if there's a menu route in the navigation stack
-      final currentRoute = ModalRoute.of(context)?.settings.name;
-      
-      // If we're on notifications and can't pop, likely came from menu
-      if (currentRoute == '/employee-notifications' || 
-          currentRoute == '/manager-notifications') {
-        // Go back to menu instead of dashboard
-        await backToMenu(context);
-        return;
-      }
-
-      // Otherwise, go to dashboard
-      String dashboardRoute;
-
-      if (role == UserRole.manager) {
-        dashboardRoute = '/manager-dashboard';
-      } else if (role == UserRole.hr) {
-        dashboardRoute = '/hr-dashboard';
-      } else {
-        dashboardRoute = '/employee-dashboard';
-      }
-
-      // Navigate to dashboard
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        dashboardRoute,
-        (route) {
-          final routeName = route.settings.name;
-          final safeRoutes = [
-            '/employee-dashboard',
-            '/hr-dashboard',
-            '/manager-dashboard',
-            '/employee-menu',
-            '/hr-menu',
-            '/manager-menu',
-            '/login',
-            '/company-selection',
-          ];
-          return safeRoutes.contains(routeName);
-        },
-      );
+      await backToMenu(context);
     } catch (e) {
       print('Error in backToPrevious: $e');
-      // Fallback to menu
-      await backToMenu(context);
+      // Final fallback: try to go to dashboard
+      try {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final role = auth.currentCompany?.userRole ?? UserRole.employee;
+
+        String dashboardRoute;
+        if (role == UserRole.manager) {
+          dashboardRoute = '/manager-dashboard';
+        } else if (role == UserRole.hr) {
+          dashboardRoute = '/hr-dashboard';
+        } else {
+          dashboardRoute = '/employee-dashboard';
+        }
+
+        // Use pushReplacementNamed instead of pushNamedAndRemoveUntil
+        // to avoid clearing the entire stack
+        Navigator.pushReplacementNamed(context, dashboardRoute);
+      } catch (e2) {
+        print('Error in backToPrevious fallback: $e2');
+      }
     }
   }
 
@@ -94,56 +78,28 @@ class NavigationHelpers {
         menuRoute = '/employee-menu';
       }
 
-      // Define safe routes (routes we can safely pop back to)
-      final safeRoutes = [
-        '/employee-dashboard',
-        '/hr-dashboard',
-        '/manager-dashboard',
-        '/employee-menu',
-        '/hr-menu',
-        '/manager-menu',
-      ];
-
-      // Always navigate to menu with removeUntil to ensure we don't hit welcome screen
-      // This is safer than trying to peek at navigation stack or pop, which might go to unsafe routes
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        menuRoute,
-        (route) {
-          final routeName = route.settings.name;
-          // Keep safe routes and authenticated entry points
-          return safeRoutes.contains(routeName) ||
-              routeName == '/login' ||
-              routeName == '/company-selection';
-        },
-      );
+      // Use pushReplacementNamed to navigate to menu
+      // This replaces the current route without clearing the entire stack
+      // This prevents accidentally going to welcome screen
+      Navigator.pushReplacementNamed(context, menuRoute);
     } catch (e) {
       print('Error in backToMenu: $e');
-      // Fallback: navigate to employee menu
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final role = auth.currentCompany?.userRole ?? UserRole.employee;
-      String menuRoute = '/employee-menu';
-      if (role == UserRole.manager) {
-        menuRoute = '/manager-menu';
-      } else if (role == UserRole.hr) {
-        menuRoute = '/hr-menu';
-      }
+      // Fallback: navigate to employee menu using pushReplacementNamed
+      try {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final role = auth.currentCompany?.userRole ?? UserRole.employee;
+        String menuRoute = '/employee-menu';
+        if (role == UserRole.manager) {
+          menuRoute = '/manager-menu';
+        } else if (role == UserRole.hr) {
+          menuRoute = '/hr-menu';
+        }
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        menuRoute,
-        (route) {
-          final routeName = route.settings.name;
-          return routeName == '/employee-dashboard' ||
-              routeName == '/hr-dashboard' ||
-              routeName == '/manager-dashboard' ||
-              routeName == '/employee-menu' ||
-              routeName == '/hr-menu' ||
-              routeName == '/manager-menu' ||
-              routeName == '/login' ||
-              routeName == '/company-selection';
-        },
-      );
+        // Use pushReplacementNamed as fallback to avoid clearing stack
+        Navigator.pushReplacementNamed(context, menuRoute);
+      } catch (e2) {
+        print('Error in backToMenu fallback: $e2');
+      }
     }
   }
 }

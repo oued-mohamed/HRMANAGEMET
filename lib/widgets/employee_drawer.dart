@@ -15,7 +15,6 @@ class EmployeeDrawer extends StatefulWidget {
 
 class _EmployeeDrawerState extends State<EmployeeDrawer> {
   int _uncompletedTasksCount = 0;
-  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -23,7 +22,6 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
     // Initialiser le service si nécessaire
     UserService.instance.initialize();
     _loadUncompletedTasksCount();
-    _loadUnreadNotificationsCount();
   }
 
   @override
@@ -31,7 +29,6 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
     super.didUpdateWidget(oldWidget);
     // Refresh count when widget updates
     _loadUncompletedTasksCount();
-    _loadUnreadNotificationsCount();
   }
 
   Future<void> _loadUncompletedTasksCount() async {
@@ -97,27 +94,6 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
       if (mounted) {
         setState(() {
           _uncompletedTasksCount = 0;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadUnreadNotificationsCount() async {
-    try {
-      final notifications = await OdooService().getUnreadNotifications();
-      final unreadCount =
-          notifications.where((n) => n['is_read'] == false).length;
-
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = unreadCount;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading notifications count: $e');
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = 0;
         });
       }
     }
@@ -417,6 +393,23 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                                 }
                               },
                             ),
+                            _buildSubMenuItem(
+                              context: context,
+                              localizations: localizations,
+                              title: localizations.translate('credit_request'),
+                              onTap: () {
+                                final currentRoute =
+                                    ModalRoute.of(context)?.settings.name;
+                                if (currentRoute == '/employee-menu') {
+                                  Navigator.pushNamed(
+                                      context, '/credit-request');
+                                } else {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(
+                                      context, '/credit-request');
+                                }
+                              },
+                            ),
                           ],
                         ),
 
@@ -601,28 +594,9 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: _unreadNotificationsCount > 0
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$_unreadNotificationsCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          : null,
       onTap: () async {
         Navigator.pop(context);
         await Navigator.pushNamed(context, '/employee-notifications');
-        // Refresh count when returning from notifications screen
-        _loadUnreadNotificationsCount();
       },
     );
   }

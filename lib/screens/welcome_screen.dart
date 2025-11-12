@@ -73,7 +73,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'HR Pro',
+                      'OZIR RH',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 52,

@@ -66,8 +66,17 @@ class _ManagerNotificationsScreenState
     });
 
     try {
+      print('🔄 Loading notifications from Odoo...');
       // Load only notifications from Odoo (no tasks)
       final notifications = await _odooService.getUnreadNotifications();
+
+      print('📊 Loaded ${notifications.length} notifications from Odoo');
+
+      // Log read status of each notification for debugging
+      for (var notif in notifications) {
+        print(
+            '  - ID: ${notif['id']}, isRead: ${notif['is_read']}, title: ${notif['title']}');
+      }
 
       if (mounted) {
         setState(() {
@@ -77,7 +86,7 @@ class _ManagerNotificationsScreenState
         });
       }
     } catch (e) {
-      print('Error loading Odoo notifications: $e');
+      print('❌ Error loading Odoo notifications: $e');
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -443,9 +452,46 @@ class _ManagerNotificationsScreenState
   }
 
   void _showNotificationDetails(
-      Map<String, dynamic> notification, AppLocalizations localizations) {
-    // Mark as read when opened
-    _notificationService.markAsRead(notification['id']);
+      Map<String, dynamic> notification, AppLocalizations localizations) async {
+    // Mark as read when opened - do this BEFORE opening modal
+    final notificationId = notification['id'];
+
+    // If it's an Odoo notification, mark it as read in Odoo
+    if (notification['isOdooNotification'] == true && notificationId is int) {
+      try {
+        print('📧 Marking notification $notificationId as read in Odoo...');
+
+        // Mark as read in Odoo FIRST to ensure persistence
+        final success =
+            await _odooService.markNotificationAsRead(notificationId);
+
+        if (success) {
+          print(
+              '✅ Successfully marked notification $notificationId as read in Odoo');
+
+          // Update local state to reflect the change immediately
+          final index =
+              _odooNotifications.indexWhere((n) => n['id'] == notificationId);
+          if (index != -1) {
+            setState(() {
+              _odooNotifications[index]['is_read'] = true;
+              _updateAllItems();
+            });
+            print('✅ Local state updated for notification $notificationId');
+          }
+        } else {
+          print('⚠️ Failed to mark notification as read in Odoo');
+        }
+      } catch (e) {
+        print('❌ Error marking notification as read: $e');
+      }
+    } else {
+      // For local notifications, use the notification service
+      _notificationService.markAsRead(notificationId.toString());
+      setState(() {
+        _updateAllItems();
+      });
+    }
 
     showModalBottomSheet(
       context: context,

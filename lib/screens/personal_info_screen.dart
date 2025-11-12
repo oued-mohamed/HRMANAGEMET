@@ -6,7 +6,6 @@ import '../services/odoo_service.dart';
 import '../services/user_service.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
-import '../utils/navigation_helpers.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../utils/app_localizations.dart';
@@ -363,305 +362,345 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToPrevious(context),
-        ),
-        title: Text(
-          localizations.translate('personal_employment_info'),
-          style: const TextStyle(color: Colors.white),
-        ),
-        backgroundColor: const Color(0xFF000B58),
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF000B58),
-              Color(0xFF35BF8C),
-            ],
-          ),
-        ),
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: OdooService().getEmployeeDetails(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/employee-menu',
+          (route) {
+            final routeName = route.settings.name;
+            // Keep only safe authenticated routes
+            // This ensures we don't remove login/company-selection
+            // but also don't end up at welcome screen
+            return routeName == '/employee-menu' ||
+                routeName == '/employee-dashboard' ||
+                routeName == '/login' ||
+                routeName == '/company-selection';
+          },
+        );
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Always navigate back to employee menu safely
+              // This prevents accidentally going to login/welcome screen
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/employee-menu',
+                (route) {
+                  final routeName = route.settings.name;
+                  // Keep only safe authenticated routes
+                  // This ensures we don't remove login/company-selection
+                  // but also don't end up at welcome screen
+                  return routeName == '/employee-menu' ||
+                      routeName == '/employee-dashboard' ||
+                      routeName == '/login' ||
+                      routeName == '/company-selection';
+                },
               );
-            }
+            },
+          ),
+          title: Text(
+            localizations.translate('personal_employment_info'),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFF000B58),
+          iconTheme: const IconThemeData(color: Colors.white),
+          elevation: 0,
+        ),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF000B58),
+                Color(0xFF35BF8C),
+              ],
+            ),
+          ),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: OdooService().getEmployeeDetails(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                );
+              }
 
-            if (snapshot.hasError) {
+              if (snapshot.hasError) {
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 100),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                          size: 60,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          localizations.translate('loading_error'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            snapshot.error
+                                .toString()
+                                .replaceAll('Exception: ', ''),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/personal-info');
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: Text(localizations.translate('retry')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF000B58),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          icon:
+                              const Icon(Icons.arrow_back, color: Colors.white),
+                          label: Text(
+                            localizations.translate('back'),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              final employeeData = snapshot.data!;
+
               return SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 100),
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.white,
-                        size: 60,
+                      // Profile Picture Section
+                      Center(
+                        child: Column(
+                          children: [
+                            Stack(
+                              children: [
+                                _selectedImage != null
+                                    ? CircleAvatar(
+                                        radius: 60,
+                                        backgroundColor: Colors.white,
+                                        backgroundImage: kIsWeb
+                                            ? NetworkImage(_selectedImage!.path)
+                                            : FileImage(
+                                                    File(_selectedImage!.path))
+                                                as ImageProvider,
+                                      )
+                                    : (employeeData['image_1920'] != null &&
+                                            employeeData['image_1920'] != false)
+                                        ? CircleAvatar(
+                                            radius: 60,
+                                            backgroundColor: Colors.white,
+                                            backgroundImage: MemoryImage(
+                                              base64Decode(
+                                                  employeeData['image_1920']),
+                                            ),
+                                          )
+                                        : const CircleAvatar(
+                                            radius: 60,
+                                            backgroundColor: Colors.white,
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 60,
+                                              color: Color(0xFF000B58),
+                                            ),
+                                          ),
+                                if (_selectedImage != null)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF35BF8C),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _showPhotoOptions,
+                              icon: const Icon(Icons.camera_alt),
+                              label:
+                                  Text(localizations.translate('change_photo')),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF000B58),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+
+                      const SizedBox(height: 32),
+
+                      // Personal Information Section
+                      _buildSectionTitle('Informations personnelles'),
                       const SizedBox(height: 16),
-                      Text(
-                        localizations.translate('loading_error'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+
+                      _buildInfoCard(
+                        icon: Icons.person_outline,
+                        label: 'Nom complet',
+                        value: employeeData['user_name']?.toString() ??
+                            employeeData['name']?.toString() ??
+                            'N/A',
+                        fieldKey: 'name',
+                        fieldType: 'text',
                       ),
+
+                      _buildInfoCard(
+                        icon: Icons.email_outlined,
+                        label: 'Email professionnel',
+                        value: employeeData['work_email']?.toString() ??
+                            employeeData['user_email']?.toString() ??
+                            'N/A',
+                        fieldKey: 'work_email',
+                        fieldType: 'email',
+                      ),
+
+                      if (employeeData['work_phone'] != null &&
+                          employeeData['work_phone'] != false)
+                        _buildInfoCard(
+                          icon: Icons.phone_outlined,
+                          label: 'Téléphone professionnel',
+                          value: employeeData['work_phone'].toString(),
+                          fieldKey: 'work_phone',
+                          fieldType: 'phone',
+                        ),
+
+                      if (employeeData['mobile_phone'] != null &&
+                          employeeData['mobile_phone'] != false)
+                        _buildInfoCard(
+                          icon: Icons.phone_android_outlined,
+                          label: 'Mobile',
+                          value: employeeData['mobile_phone'].toString(),
+                          fieldKey: 'mobile_phone',
+                          fieldType: 'phone',
+                        ),
+
+                      if (employeeData['birthday'] != null &&
+                          employeeData['birthday'] != false)
+                        _buildInfoCard(
+                          icon: Icons.cake_outlined,
+                          label: 'Date de naissance',
+                          value:
+                              _formatDate(employeeData['birthday'].toString()),
+                          fieldKey: 'birthday',
+                          fieldType: 'date',
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // Employment Information d'emploi
+                      _buildSectionTitle('Informations d\'emploi'),
                       const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
+
+                      if (employeeData['job_id'] != null &&
+                          employeeData['job_id'] != false)
+                        _buildInfoCard(
+                          icon: Icons.work_outline,
+                          label: 'Poste',
+                          value: _extractName(employeeData['job_id']),
                         ),
-                        child: Text(
-                          snapshot.error
-                              .toString()
-                              .replaceAll('Exception: ', ''),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
+
+                      if (employeeData['department_id'] != null &&
+                          employeeData['department_id'] != false)
+                        _buildInfoCard(
+                          icon: Icons.business_outlined,
+                          label: 'Département',
+                          value: _extractName(employeeData['department_id']),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(
-                              context, '/personal-info');
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: Text(localizations.translate('retry')),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF000B58),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
+
+                      if (employeeData['barcode'] != null &&
+                          employeeData['barcode'] != false)
+                        _buildInfoCard(
+                          icon: Icons.badge_outlined,
+                          label: 'Matricule',
+                          value: employeeData['barcode'].toString(),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        label: Text(
-                          localizations.translate('back'),
-                          style: const TextStyle(color: Colors.white),
+
+                      if (employeeData['company_id'] != null &&
+                          employeeData['company_id'] != false)
+                        _buildInfoCard(
+                          icon: Icons.apartment_outlined,
+                          label: 'Société',
+                          value: _extractName(employeeData['company_id']),
                         ),
-                      ),
+
+                      if (employeeData['parent_id'] != null &&
+                          employeeData['parent_id'] != false)
+                        _buildInfoCard(
+                          icon: Icons.supervisor_account_outlined,
+                          label: 'Manager',
+                          value: _extractName(employeeData['parent_id']),
+                        ),
+
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
               );
-            }
-
-            final employeeData = snapshot.data!;
-
-            return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Profile Picture Section
-                    Center(
-                      child: Column(
-                        children: [
-                          Stack(
-                            children: [
-                              _selectedImage != null
-                                  ? CircleAvatar(
-                                      radius: 60,
-                                      backgroundColor: Colors.white,
-                                      backgroundImage: kIsWeb
-                                          ? NetworkImage(_selectedImage!.path)
-                                          : FileImage(
-                                                  File(_selectedImage!.path))
-                                              as ImageProvider,
-                                    )
-                                  : (employeeData['image_1920'] != null &&
-                                          employeeData['image_1920'] != false)
-                                      ? CircleAvatar(
-                                          radius: 60,
-                                          backgroundColor: Colors.white,
-                                          backgroundImage: MemoryImage(
-                                            base64Decode(
-                                                employeeData['image_1920']),
-                                          ),
-                                        )
-                                      : const CircleAvatar(
-                                          radius: 60,
-                                          backgroundColor: Colors.white,
-                                          child: Icon(
-                                            Icons.person,
-                                            size: 60,
-                                            color: Color(0xFF000B58),
-                                          ),
-                                        ),
-                              if (_selectedImage != null)
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF35BF8C),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.check,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _showPhotoOptions,
-                            icon: const Icon(Icons.camera_alt),
-                            label:
-                                Text(localizations.translate('change_photo')),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF000B58),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Personal Information Section
-                    _buildSectionTitle('Informations personnelles'),
-                    const SizedBox(height: 16),
-
-                    _buildInfoCard(
-                      icon: Icons.person_outline,
-                      label: 'Nom complet',
-                      value: employeeData['user_name']?.toString() ??
-                          employeeData['name']?.toString() ??
-                          'N/A',
-                      fieldKey: 'name',
-                      fieldType: 'text',
-                    ),
-
-                    _buildInfoCard(
-                      icon: Icons.email_outlined,
-                      label: 'Email professionnel',
-                      value: employeeData['work_email']?.toString() ??
-                          employeeData['user_email']?.toString() ??
-                          'N/A',
-                      fieldKey: 'work_email',
-                      fieldType: 'email',
-                    ),
-
-                    if (employeeData['work_phone'] != null &&
-                        employeeData['work_phone'] != false)
-                      _buildInfoCard(
-                        icon: Icons.phone_outlined,
-                        label: 'Téléphone professionnel',
-                        value: employeeData['work_phone'].toString(),
-                        fieldKey: 'work_phone',
-                        fieldType: 'phone',
-                      ),
-
-                    if (employeeData['mobile_phone'] != null &&
-                        employeeData['mobile_phone'] != false)
-                      _buildInfoCard(
-                        icon: Icons.phone_android_outlined,
-                        label: 'Mobile',
-                        value: employeeData['mobile_phone'].toString(),
-                        fieldKey: 'mobile_phone',
-                        fieldType: 'phone',
-                      ),
-
-                    if (employeeData['birthday'] != null &&
-                        employeeData['birthday'] != false)
-                      _buildInfoCard(
-                        icon: Icons.cake_outlined,
-                        label: 'Date de naissance',
-                        value: _formatDate(employeeData['birthday'].toString()),
-                        fieldKey: 'birthday',
-                        fieldType: 'date',
-                      ),
-
-                    const SizedBox(height: 20),
-
-                    // Employment Information d'emploi
-                    _buildSectionTitle('Informations d\'emploi'),
-                    const SizedBox(height: 16),
-
-                    if (employeeData['job_id'] != null &&
-                        employeeData['job_id'] != false)
-                      _buildInfoCard(
-                        icon: Icons.work_outline,
-                        label: 'Poste',
-                        value: _extractName(employeeData['job_id']),
-                      ),
-
-                    if (employeeData['department_id'] != null &&
-                        employeeData['department_id'] != false)
-                      _buildInfoCard(
-                        icon: Icons.business_outlined,
-                        label: 'Département',
-                        value: _extractName(employeeData['department_id']),
-                      ),
-
-                    if (employeeData['barcode'] != null &&
-                        employeeData['barcode'] != false)
-                      _buildInfoCard(
-                        icon: Icons.badge_outlined,
-                        label: 'Matricule',
-                        value: employeeData['barcode'].toString(),
-                      ),
-
-                    if (employeeData['company_id'] != null &&
-                        employeeData['company_id'] != false)
-                      _buildInfoCard(
-                        icon: Icons.apartment_outlined,
-                        label: 'Société',
-                        value: _extractName(employeeData['company_id']),
-                      ),
-
-                    if (employeeData['parent_id'] != null &&
-                        employeeData['parent_id'] != false)
-                      _buildInfoCard(
-                        icon: Icons.supervisor_account_outlined,
-                        label: 'Manager',
-                        value: _extractName(employeeData['parent_id']),
-                      ),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );

@@ -144,13 +144,20 @@ class _EmployeeLeaveRequestsScreenState
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF000B58),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => NavigationHelpers.backToPrevious(context),
-        ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToPrevious(context);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF000B58),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => NavigationHelpers.backToPrevious(context),
+          ),
         title: const Text(
           'Mes Demandes de Congé',
           style: TextStyle(color: Colors.white),
@@ -215,6 +222,7 @@ class _EmployeeLeaveRequestsScreenState
                         },
                       ),
                     ),
+      ),
     );
   }
 

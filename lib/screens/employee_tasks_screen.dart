@@ -204,7 +204,14 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToMenu(context);
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         leading: IconButton(
@@ -462,6 +469,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> {
                             ),
                           );
                         },
+                      ),
                       ),
                     ),
     );

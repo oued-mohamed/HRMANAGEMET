@@ -40,6 +40,12 @@ class OdooService {
   List<Map<String, dynamic>>? _cachedPendingTeamLeaves;
   DateTime? _cachedPendingTeamLeavesAt;
 
+  List<Map<String, dynamic>>? _cachedLeaveTypes;
+  DateTime? _cachedLeaveTypesAt;
+
+  List<Map<String, dynamic>>? _cachedPunchingEntities;
+  DateTime? _cachedPunchingEntitiesAt;
+
   // Default cache lifetime
   static const Duration _defaultCacheTtl = Duration(minutes: 5);
 
@@ -54,6 +60,10 @@ class OdooService {
     _cachedTeamMembersAt = null;
     _cachedPendingTeamLeaves = null;
     _cachedPendingTeamLeavesAt = null;
+    _cachedLeaveTypes = null;
+    _cachedLeaveTypesAt = null;
+    _cachedPunchingEntities = null;
+    _cachedPunchingEntitiesAt = null;
   }
 
   // Login method
@@ -417,6 +427,53 @@ class OdooService {
               'Found ${notifications is List ? notifications.length : 0} mail.message notifications');
 
           if (notifications is List) {
+            // Get read status from mail.notification for all messages
+            final messageIds = notifications
+                .where((item) =>
+                    item is Map<String, dynamic> && item['id'] != null)
+                .map((item) => (item as Map<String, dynamic>)['id'] as int)
+                .toList();
+
+            Map<int, bool> readStatusMap = {};
+            if (messageIds.isNotEmpty) {
+              try {
+                final mailNotifications =
+                    await _callRPC('object', 'execute_kw', [
+                  database,
+                  _userId,
+                  _password,
+                  'mail.notification',
+                  'search_read',
+                  [
+                    [
+                      ['mail_message_id', 'in', messageIds],
+                      ['res_partner_id', '=', partnerId],
+                    ]
+                  ],
+                  {
+                    'fields': ['mail_message_id', 'is_read'],
+                  }
+                ]);
+
+                if (mailNotifications is List) {
+                  for (var notif in mailNotifications) {
+                    if (notif is Map<String, dynamic>) {
+                      final msgId = notif['mail_message_id'];
+                      final isRead = notif['is_read'] ?? false;
+                      if (msgId is List && msgId.isNotEmpty) {
+                        readStatusMap[msgId[0] as int] = isRead == true;
+                      } else if (msgId is int) {
+                        readStatusMap[msgId] = isRead == true;
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                print('Error fetching read status: $e');
+                // Continue with all notifications marked as unread if we can't fetch status
+              }
+            }
+
             final List<Map<String, dynamic>> validNotifications = [];
             for (var item in notifications) {
               if (item is Map<String, dynamic>) {
@@ -427,10 +484,14 @@ class OdooService {
                 final createDate = item['create_date'];
                 final model = item['model'];
                 final resId = item['res_id'];
+                final messageId = item['id'] as int;
+
+                // Get read status from map, default to false if not found
+                final isRead = readStatusMap[messageId] ?? false;
 
                 // Transform mail.message data to notification format
                 validNotifications.add({
-                  'id': item['id'],
+                  'id': messageId,
                   'title': (subject == false || subject == null)
                       ? 'Notification'
                       : subject.toString(),
@@ -438,7 +499,7 @@ class OdooService {
                       (body == false || body == null) ? '' : body.toString(),
                   'type': 'hr_notification',
                   'data': {
-                    'message_id': item['id'],
+                    'message_id': messageId,
                     'subject': (subject == false || subject == null)
                         ? null
                         : subject.toString(),
@@ -454,7 +515,7 @@ class OdooService {
                       ? null
                       : createDate.toString(),
                   'employee_id': employeeId,
-                  'is_read': false, // We'll track this locally for now
+                  'is_read': isRead,
                 });
               }
             }
@@ -763,17 +824,97 @@ class OdooService {
     }
   }
 
-  // Mark notification as read
-  Future<bool> markNotificationAsRead(int notificationId) async {
-    print('Marking notification $notificationId as read...');
+  // Mark notification as read using mail.notification
+  Future<bool> markNotificationAsRead(int messageId) async {
+    print('Marking notification $messageId as read...');
+
+    if (_userId == null || _password == null) {
+      print('Not authenticated');
+      return false;
+    }
 
     try {
-      // Since we're using tasks as notifications, we'll just return true
-      // In a real implementation, you might want to store read status locally
-      // or create a separate notification tracking system
-      print(
-          'Notification $notificationId marked as read (using task-based notifications)');
-      return true;
+      // Get employee's partner_id
+      final employeeId = await getCurrentEmployeeId();
+      final employeeData = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.employee',
+        'read',
+        [employeeId],
+        {
+          'fields': ['user_id']
+        }
+      ]);
+
+      if (employeeData is List && employeeData.isNotEmpty) {
+        final userData = employeeData.first;
+        final userId = userData['user_id'];
+
+        if (userId is List && userId.isNotEmpty) {
+          // Get partner_id from user
+          final userInfo = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'res.users',
+            'read',
+            [userId[0]],
+            {
+              'fields': ['partner_id']
+            }
+          ]);
+
+          if (userInfo is List && userInfo.isNotEmpty) {
+            final userPartner = userInfo.first['partner_id'];
+            if (userPartner is List && userPartner.isNotEmpty) {
+              final partnerId = userPartner[0] as int;
+
+              // Find the mail.notification record for this message and partner
+              final notificationIds = await _callRPC('object', 'execute_kw', [
+                database,
+                _userId,
+                _password,
+                'mail.notification',
+                'search',
+                [
+                  [
+                    ['mail_message_id', '=', messageId],
+                    ['res_partner_id', '=', partnerId],
+                  ]
+                ]
+              ]);
+
+              if (notificationIds is List && notificationIds.isNotEmpty) {
+                // Mark notification as read
+                await _callRPC('object', 'execute_kw', [
+                  database,
+                  _userId,
+                  _password,
+                  'mail.notification',
+                  'write',
+                  [
+                    notificationIds,
+                    {'is_read': true}
+                  ]
+                ]);
+
+                print('✅ Notification $messageId marked as read in Odoo');
+                return true;
+              } else {
+                print(
+                    '⚠️ No mail.notification found for message $messageId and partner $partnerId');
+                // Still return true as the notification might have been read another way
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      print('⚠️ Could not find partner_id to mark notification as read');
+      return false;
     } catch (e) {
       print('Error marking notification as read: $e');
       return false;
@@ -2500,6 +2641,32 @@ class OdooService {
     print('FETCHING LEAVE TYPES');
     print('========================================');
 
+    final syncService = SyncService();
+
+    // Check if offline - return cached leave types if available
+    if (!syncService.isConnected) {
+      print('📴 Offline: Checking for cached leave types...');
+      if (_cachedLeaveTypes != null && _cachedLeaveTypesAt != null) {
+        final cacheAge = DateTime.now().difference(_cachedLeaveTypesAt!);
+        if (cacheAge < Duration(hours: 24)) {
+          print('✅ Using cached leave types (${_cachedLeaveTypes!.length} types, age: ${cacheAge.inMinutes} minutes)');
+          return _cachedLeaveTypes!;
+        }
+      }
+      print('⚠️ Offline and no cached leave types available');
+      // Return empty list instead of throwing exception to prevent crash
+      return [];
+    }
+
+    // Check cache first (even when online, to avoid unnecessary calls)
+    if (_cachedLeaveTypes != null && _cachedLeaveTypesAt != null) {
+      final cacheAge = DateTime.now().difference(_cachedLeaveTypesAt!);
+      if (cacheAge < _defaultCacheTtl) {
+        print('✅ Using cached leave types (${_cachedLeaveTypes!.length} types)');
+        return _cachedLeaveTypes!;
+      }
+    }
+
     List<Map<String, dynamic>> types = <Map<String, dynamic>>[];
 
     try {
@@ -2663,7 +2830,19 @@ class OdooService {
         'After filtering: ${types.length} (removed ${beforeFilter - types.length})');
     print('========================================');
 
+    // Cache the leave types
+    if (types.isNotEmpty) {
+      _cachedLeaveTypes = types;
+      _cachedLeaveTypesAt = DateTime.now();
+      print('✅ Cached ${types.length} leave types');
+    }
+
     if (types.isEmpty) {
+      // If we have cached types, use them even if they're old
+      if (_cachedLeaveTypes != null && _cachedLeaveTypes!.isNotEmpty) {
+        print('⚠️ No new leave types found, using cached types');
+        return _cachedLeaveTypes!;
+      }
       throw Exception(
           'No leave types available. Please check Odoo configuration and user permissions');
     }
@@ -4635,6 +4814,31 @@ class OdooService {
       throw Exception('Not authenticated');
     }
 
+    final syncService = SyncService();
+    
+    // Check if offline - return cached data if available
+    if (!syncService.isConnected) {
+      if (_cachedPunchingEntities != null && _cachedPunchingEntitiesAt != null) {
+        final cacheAge = DateTime.now().difference(_cachedPunchingEntitiesAt!);
+        if (cacheAge < Duration(hours: 24)) {
+          print('📴 Offline: Using cached punching entities');
+          return _cachedPunchingEntities!;
+        }
+      }
+      // If no cache available offline, return empty list (will use null entiteId)
+      print('📴 Offline: No cached entities available, will proceed without entity');
+      return [];
+    }
+
+    // Check cache first if available and fresh
+    if (_cachedPunchingEntities != null && _cachedPunchingEntitiesAt != null) {
+      final cacheAge = DateTime.now().difference(_cachedPunchingEntitiesAt!);
+      if (cacheAge < _defaultCacheTtl) {
+        print('✅ Using cached punching entities');
+        return _cachedPunchingEntities!;
+      }
+    }
+
     try {
       print('🔍 Fetching entities from model: entite.pointage');
 
@@ -4672,16 +4876,27 @@ class OdooService {
 
       if (entities.isEmpty) {
         print('⚠️ No entities found in database');
-        throw Exception(
-            'No attendance entities found. Please contact your administrator to create entities.');
+        // Don't throw exception, just return empty list
+        // The punch in/out will work without entity
+        return [];
       }
+
+      // Cache the entities
+      _cachedPunchingEntities = entities;
+      _cachedPunchingEntitiesAt = DateTime.now();
 
       print('✅ Found ${entities.length} entities');
       print('📋 Entities: $entities');
       return entities;
     } catch (e) {
       print('❌ Error fetching entities: $e');
-      rethrow;
+      // If we have cached entities, return them even if stale
+      if (_cachedPunchingEntities != null && _cachedPunchingEntities!.isNotEmpty) {
+        print('⚠️ Using stale cached entities due to error');
+        return _cachedPunchingEntities!;
+      }
+      // Return empty list instead of throwing - allows punch in/out to proceed
+      return [];
     }
   }
 

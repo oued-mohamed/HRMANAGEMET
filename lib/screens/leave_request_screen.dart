@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/navigation_helpers.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
+import '../services/sync_service.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -32,37 +33,65 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   }
 
   Future<void> _initializeScreen() async {
-    await _verifyAuth();
-    await _loadLeaveTypes();
-  }
-
-  Future<void> _verifyAuth() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    if (!authProvider.isAuthenticated ||
-        !authProvider.odooService.isAuthenticated) {
-      final restored = await authProvider.verifyAuthentication();
-
-      if (!restored) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Session expirée. Veuillez vous reconnecter.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
+    try {
+      await _verifyAuth();
+      await _loadLeaveTypes();
+    } catch (e) {
+      print('Error initializing leave request screen: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingLeaveTypes = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'initialisation: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     }
   }
 
+  Future<void> _verifyAuth() async {
+    try {
+      if (!mounted) return;
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      if (!authProvider.isAuthenticated ||
+          !authProvider.odooService.isAuthenticated) {
+        final restored = await authProvider.verifyAuthentication();
+
+        if (!restored) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Session expirée. Veuillez vous reconnecter.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        }
+      }
+    } catch (e) {
+      print('Error verifying authentication: $e');
+      // Don't crash the app, just log the error
+      // The leave types loading will handle offline mode
+    }
+  }
+
   Future<void> _loadLeaveTypes() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoadingLeaveTypes = true;
     });
 
     try {
+      if (!mounted) return;
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final leaveTypes = await authProvider.odooService.getLeaveTypes();
 
@@ -81,6 +110,18 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             _selectedLeaveTypeId = _leaveTypes.first['id'];
           }
         });
+
+        // Show message if offline and no cached types available
+        if (leaveTypes.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Mode hors ligne: Aucun type de congé disponible. Veuillez vous connecter pour charger les types de congés.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (e) {
       print('Error loading leave types: $e');
@@ -92,6 +133,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           SnackBar(
             content: Text('Erreur lors du chargement des types de congés: $e'),
             backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -115,273 +157,286 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final labelFontSize = isSmallScreen ? 14.0 : 16.0;
     final buttonFontSize = isSmallScreen ? 16.0 : 18.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => NavigationHelpers.backToMenu(context),
-        ),
-        title: const Text('Demande de congé'),
-        backgroundColor: const Color(0xFF000B58),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF000B58),
-              Color(0xFF35BF8C),
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        // Handle Android back button - same functionality as AppBar back button
+        await NavigationHelpers.backToMenu(context);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => NavigationHelpers.backToMenu(context),
           ),
+          title: const Text('Demande de congé'),
+          backgroundColor: const Color(0xFF000B58),
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
-        child: SafeArea(
-          child: _isLoadingLeaveTypes
-              ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                )
-              : Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 16,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF000B58),
+                Color(0xFF35BF8C),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: _isLoadingLeaveTypes
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
                     ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: 800, // Max width for large screens
+                  )
+                : Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 16,
                       ),
-                      child: Card(
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 800, // Max width for large screens
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.all(cardPadding),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Nouvelle demande de congé',
-                                  style: TextStyle(
-                                    fontSize: titleFontSize,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF000B58),
+                        child: Card(
+                          elevation: 8,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(cardPadding),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Nouvelle demande de congé',
+                                    style: TextStyle(
+                                      fontSize: titleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF000B58),
+                                    ),
                                   ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                  SizedBox(height: isSmallScreen ? 16 : 24),
 
-                                // Leave Type Selection
-                                Text(
-                                  'Type de congé',
-                                  style: TextStyle(
-                                    fontSize: labelFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                if (_leaveTypes.isEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.orange),
-                                      borderRadius: BorderRadius.circular(12),
-                                      color: Colors.orange[50],
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.warning,
-                                            color: Colors.orange),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            'Aucun type de congé disponible',
-                                            style: TextStyle(
-                                              color: Colors.orange[900],
-                                              fontSize: labelFontSize - 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _selectedLeaveType,
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.grey[50],
-                                      prefixIcon:
-                                          const Icon(Icons.event_available),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: isSmallScreen ? 12 : 16,
-                                      ),
-                                    ),
+                                  // Leave Type Selection
+                                  Text(
+                                    'Type de congé',
                                     style: TextStyle(
                                       fontSize: labelFontSize,
+                                      fontWeight: FontWeight.w600,
                                       color: Colors.black87,
                                     ),
-                                    items: _leaveTypes.map((type) {
-                                      return DropdownMenuItem<String>(
-                                        value: type['name'],
-                                        child: Text(type['name']),
-                                      );
-                                    }).toList(),
-                                    onChanged: (String? newValue) {
-                                      setState(() {
-                                        _selectedLeaveType = newValue;
-                                        _selectedLeaveTypeId =
-                                            _leaveTypes.firstWhere((type) =>
-                                                type['name'] == newValue)['id'];
-                                        print(
-                                            'Selected: $_selectedLeaveType (ID: $_selectedLeaveTypeId)');
-                                      });
-                                    },
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Veuillez sélectionner un type de congé';
-                                      }
-                                      return null;
-                                    },
                                   ),
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-
-                                // Date Range Selection - Responsive layout
-                                isSmallScreen
-                                    ? Column(
+                                  const SizedBox(height: 8),
+                                  if (_leaveTypes.isEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        border:
+                                            Border.all(color: Colors.orange),
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: Colors.orange[50],
+                                      ),
+                                      child: Row(
                                         children: [
-                                          _buildDateField(
-                                            label: 'Date de début',
-                                            date: _startDate,
-                                            onTap: () =>
-                                                _selectStartDate(context),
-                                            labelFontSize: labelFontSize,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          _buildDateField(
-                                            label: 'Date de fin',
-                                            date: _endDate,
-                                            onTap: () =>
-                                                _selectEndDate(context),
-                                            labelFontSize: labelFontSize,
+                                          const Icon(Icons.warning,
+                                              color: Colors.orange),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              'Aucun type de congé disponible',
+                                              style: TextStyle(
+                                                color: Colors.orange[900],
+                                                fontSize: labelFontSize - 2,
+                                              ),
+                                            ),
                                           ),
                                         ],
-                                      )
-                                    : Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildDateField(
+                                      ),
+                                    )
+                                  else
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _selectedLeaveType,
+                                      decoration: InputDecoration(
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.grey[50],
+                                        prefixIcon:
+                                            const Icon(Icons.event_available),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: isSmallScreen ? 12 : 16,
+                                        ),
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: labelFontSize,
+                                        color: Colors.black87,
+                                      ),
+                                      items: _leaveTypes.map((type) {
+                                        return DropdownMenuItem<String>(
+                                          value: type['name'],
+                                          child: Text(type['name']),
+                                        );
+                                      }).toList(),
+                                      onChanged: (String? newValue) {
+                                        setState(() {
+                                          _selectedLeaveType = newValue;
+                                          _selectedLeaveTypeId =
+                                              _leaveTypes.firstWhere((type) =>
+                                                  type['name'] ==
+                                                  newValue)['id'];
+                                          print(
+                                              'Selected: $_selectedLeaveType (ID: $_selectedLeaveTypeId)');
+                                        });
+                                      },
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Veuillez sélectionner un type de congé';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  SizedBox(height: isSmallScreen ? 16 : 20),
+
+                                  // Date Range Selection - Responsive layout
+                                  isSmallScreen
+                                      ? Column(
+                                          children: [
+                                            _buildDateField(
                                               label: 'Date de début',
                                               date: _startDate,
                                               onTap: () =>
                                                   _selectStartDate(context),
                                               labelFontSize: labelFontSize,
                                             ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: _buildDateField(
+                                            const SizedBox(height: 16),
+                                            _buildDateField(
                                               label: 'Date de fin',
                                               date: _endDate,
                                               onTap: () =>
                                                   _selectEndDate(context),
                                               labelFontSize: labelFontSize,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                          ],
+                                        )
+                                      : Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildDateField(
+                                                label: 'Date de début',
+                                                date: _startDate,
+                                                onTap: () =>
+                                                    _selectStartDate(context),
+                                                labelFontSize: labelFontSize,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: _buildDateField(
+                                                label: 'Date de fin',
+                                                date: _endDate,
+                                                onTap: () =>
+                                                    _selectEndDate(context),
+                                                labelFontSize: labelFontSize,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                  SizedBox(height: isSmallScreen ? 16 : 20),
 
-                                // Reason Text Field
-                                Text(
-                                  'Raison (optionnel)',
-                                  style: TextStyle(
-                                    fontSize: labelFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  maxLines: isSmallScreen ? 3 : 4,
-                                  style: TextStyle(fontSize: labelFontSize),
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Décrivez la raison de votre demande de congé...',
-                                    hintStyle:
-                                        TextStyle(fontSize: labelFontSize - 2),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                    prefixIcon: const Icon(Icons.note),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: isSmallScreen ? 12 : 16,
+                                  // Reason Text Field
+                                  Text(
+                                    'Raison (optionnel)',
+                                    style: TextStyle(
+                                      fontSize: labelFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
                                     ),
                                   ),
-                                  onChanged: (value) {
-                                    _reason = value;
-                                  },
-                                ),
-                                SizedBox(height: isSmallScreen ? 24 : 32),
-
-                                // Submit Button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: isSmallScreen ? 48 : 56,
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        (_isLoading || _leaveTypes.isEmpty)
-                                            ? null
-                                            : _submitLeaveRequest,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF35BF8C),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    maxLines: isSmallScreen ? 3 : 4,
+                                    style: TextStyle(fontSize: labelFontSize),
+                                    decoration: InputDecoration(
+                                      hintText:
+                                          'Décrivez la raison de votre demande de congé...',
+                                      hintStyle: TextStyle(
+                                          fontSize: labelFontSize - 2),
+                                      border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      elevation: 4,
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
+                                      prefixIcon: const Icon(Icons.note),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: isSmallScreen ? 12 : 16,
+                                      ),
                                     ),
-                                    child: _isLoading
-                                        ? SizedBox(
-                                            height: isSmallScreen ? 18 : 20,
-                                            width: isSmallScreen ? 18 : 20,
-                                            child:
-                                                const CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Text(
-                                            'Soumettre la demande',
-                                            style: TextStyle(
-                                              fontSize: buttonFontSize,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
+                                    onChanged: (value) {
+                                      _reason = value;
+                                    },
                                   ),
-                                ),
-                              ],
+                                  SizedBox(height: isSmallScreen ? 24 : 32),
+
+                                  // Submit Button
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: isSmallScreen ? 48 : 56,
+                                    child: ElevatedButton(
+                                      onPressed:
+                                          (_isLoading || _leaveTypes.isEmpty)
+                                              ? null
+                                              : _submitLeaveRequest,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF35BF8C),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        elevation: 4,
+                                      ),
+                                      child: _isLoading
+                                          ? SizedBox(
+                                              height: isSmallScreen ? 18 : 20,
+                                              width: isSmallScreen ? 18 : 20,
+                                              child:
+                                                  const CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : Text(
+                                              'Soumettre la demande',
+                                              style: TextStyle(
+                                                fontSize: buttonFontSize,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
+          ),
         ),
       ),
     );
@@ -438,39 +493,70 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   }
 
   Future<void> _selectStartDate(BuildContext context) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (date != null) {
-      setState(() {
-        _startDate = date;
-      });
+    if (!mounted) return;
+
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: DateTime.now(),
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (date != null && mounted) {
+        setState(() {
+          _startDate = date;
+        });
+      }
+    } catch (e) {
+      print('Error selecting start date: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sélection de la date: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _selectEndDate(BuildContext context) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _startDate ?? DateTime.now(),
-      firstDate: _startDate ?? DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (date != null) {
-      setState(() {
-        _endDate = date;
-      });
+    if (!mounted) return;
+
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: _startDate ?? DateTime.now(),
+        firstDate: _startDate ?? DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (date != null && mounted) {
+        setState(() {
+          _endDate = date;
+        });
+      }
+    } catch (e) {
+      print('Error selecting end date: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sélection de la date: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _submitLeaveRequest() async {
+    if (!mounted) return;
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     if (_startDate == null || _endDate == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez sélectionner les dates de début et de fin'),
@@ -481,6 +567,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
 
     if (_endDate!.isBefore(_startDate!)) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('La date de fin doit être après la date de début'),
@@ -491,6 +578,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
 
     if (_selectedLeaveType == null || _selectedLeaveTypeId == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez sélectionner un type de congé'),
@@ -500,19 +588,52 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
+      if (!mounted) return;
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      if (!authProvider.odooService.isAuthenticated) {
-        print('Not authenticated, attempting to restore...');
-        final restored = await authProvider.verifyAuthentication();
+      // Only check authentication if both AuthProvider and OdooService indicate not authenticated
+      // This prevents unnecessary re-authentication attempts
+      if (!authProvider.isAuthenticated ||
+          !authProvider.odooService.isAuthenticated) {
+        print(
+            'Authentication check: AuthProvider=${authProvider.isAuthenticated}, OdooService=${authProvider.odooService.isAuthenticated}');
+        print('Attempting to restore authentication...');
 
-        if (!restored) {
-          throw Exception('Session expirée. Veuillez vous reconnecter.');
+        try {
+          final restored = await authProvider.verifyAuthentication();
+
+          if (!restored) {
+            print('Authentication restoration failed');
+            // Only navigate to login if we truly can't authenticate
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Session expirée. Veuillez vous reconnecter.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              // Wait a bit before navigating to allow user to see the message
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
+            }
+            return;
+          }
+          print('Authentication restored successfully');
+        } catch (authError) {
+          print('Error during authentication verification: $authError');
+          // If verification itself fails, don't immediately logout
+          // The RPC call will fail if auth is truly invalid
+          print('Continuing with submission attempt...');
         }
       }
 
@@ -522,6 +643,10 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       print('End date: $_endDate');
       print('Reason: $_reason');
 
+      // Check if offline before submitting
+      final syncService = SyncService();
+      final isOffline = !syncService.isConnected;
+
       final leaveId = await authProvider.odooService.createLeaveRequest(
         leaveTypeId: _selectedLeaveTypeId!,
         dateFrom: _startDate!,
@@ -529,31 +654,98 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         reason: _reason.isNotEmpty ? _reason : null,
       );
 
-      print('Leave request created with ID: $leaveId');
+      print('Leave request created with ID: $leaveId (offline: $isOffline)');
 
       if (leaveId > 0) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Demande de congé soumise avec succès!'),
-              backgroundColor: Color(0xFF35BF8C),
-            ),
-          );
-          Navigator.pop(context);
+          if (isOffline) {
+            // Show offline message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Demande de congé enregistrée en mode hors ligne. Elle sera envoyée automatiquement lorsque vous serez connecté.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else {
+            // Show success message for online submission
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Demande de congé soumise avec succès!'),
+                backgroundColor: Color(0xFF35BF8C),
+              ),
+            );
+          }
+
+          // Navigate back safely using NavigationHelpers which handles the navigation properly
+          // This ensures we go back to the previous screen (e.g., employee dashboard)
+          // instead of accidentally going to welcome page
+          await NavigationHelpers.backToPrevious(context);
         }
       } else {
         throw Exception('Échec de la soumission de la demande');
       }
     } catch (e) {
       print('Error submitting leave request: $e');
+      print('Error type: ${e.runtimeType}');
+
+      // Check if error is related to network/connectivity
+      final errorString = e.toString().toLowerCase();
+      final isNetworkError = errorString.contains('socket') ||
+          errorString.contains('network') ||
+          errorString.contains('connection') ||
+          errorString.contains('timeout') ||
+          errorString.contains('failed host lookup') ||
+          errorString.contains('no internet');
+
+      // Check if error is related to authentication
+      final isAuthError = errorString.contains('session') ||
+          errorString.contains('expir') ||
+          errorString.contains('authentic') ||
+          errorString.contains('access denied') ||
+          errorString.contains('unauthorized') ||
+          errorString.contains('not authenticated');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (isNetworkError) {
+          // For network errors, show offline message and try to queue
+          print('Network error detected, attempting to queue operation');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Mode hors ligne détecté. La demande sera enregistrée et envoyée automatiquement lorsque vous serez connecté.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          // Don't navigate away, let user try again or wait for connection
+        } else if (isAuthError) {
+          // For authentication errors, show message and navigate to login
+          print('Authentication error detected, navigating to login');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Session expirée. Veuillez vous reconnecter.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          // Wait a bit before navigating to allow user to see the message
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        } else {
+          // For other errors, just show the error message without logging out
+          print('Non-authentication error, showing error message only');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {
