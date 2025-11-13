@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/navigation_helpers.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {

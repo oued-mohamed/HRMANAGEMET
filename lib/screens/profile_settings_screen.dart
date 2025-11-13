@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../presentation/providers/language_provider.dart';
 import '../utils/navigation_helpers.dart';
 import '../utils/app_localizations.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});

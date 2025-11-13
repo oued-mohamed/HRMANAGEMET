@@ -10,6 +10,7 @@ import '../services/user_service.dart';
 import '../services/odoo_service.dart';
 import '../services/notification_service.dart';
 import '../data/models/user_model.dart';
+import '../widgets/dashboard_header_title.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -280,25 +281,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ),
                     // Title
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            localizations.translate('high_performance'),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            localizations.translate('hr_management'),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
+                      child: DashboardHeaderTitle(
+                        titleFontSize: 18,
+                        titleColor: Colors.black87,
                       ),
                     ),
                     // Profile Picture (navigates to personal info)

@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import '../utils/navigation_helpers.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
 
 class PersonalDocumentsScreen extends StatefulWidget {
   const PersonalDocumentsScreen({super.key});

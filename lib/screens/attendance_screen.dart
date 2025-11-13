@@ -6,6 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/odoo_service.dart';
 import '../services/sync_service.dart';
 import '../utils/app_localizations.dart';
+import '../services/user_service.dart';
+import '../data/models/user_model.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceScreen extends StatefulWidget {

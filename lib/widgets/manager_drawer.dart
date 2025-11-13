@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
+import 'logout_button.dart';
 
 class ManagerDrawer extends StatefulWidget {
   const ManagerDrawer({super.key});
@@ -435,34 +436,12 @@ class _ManagerDrawerState extends State<ManagerDrawer> {
                             ),
                           ],
                         ),
-
-                        // Footer - Logout
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              const Divider(color: Colors.white30),
-                              ListTile(
-                                leading: const Icon(Icons.logout,
-                                    color: Colors.white70),
-                                title: Text(
-                                  localizations.translate('logout'),
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
-                                onTap: () {
-                                  Navigator.pushNamedAndRemoveUntil(
-                                    context,
-                                    '/login',
-                                    (route) => false,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
+
+                  // Footer - Logout (sticky at bottom)
+                  const LogoutButton(),
                 ],
               ),
             ),

@@ -5,6 +5,7 @@ import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 import '../services/notification_service.dart';
 import '../services/odoo_service.dart';
+import 'logout_button.dart';
 
 class EmployeeDrawer extends StatefulWidget {
   const EmployeeDrawer({super.key});
@@ -463,29 +464,7 @@ class _EmployeeDrawerState extends State<EmployeeDrawer> {
                   ),
 
                   // Footer - Logout
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Divider(color: Colors.white30),
-                        ListTile(
-                          leading:
-                              const Icon(Icons.logout, color: Colors.white70),
-                          title: Text(
-                            localizations.translate('logout'),
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          onTap: () {
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              '/login',
-                              (route) => false,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  const LogoutButton(),
                 ],
               ),
             ),

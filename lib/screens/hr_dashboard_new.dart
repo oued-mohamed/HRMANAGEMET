@@ -9,6 +9,7 @@ import '../services/user_service.dart';
 import '../services/odoo_service.dart';
 import '../services/notification_service.dart';
 import '../data/models/user_model.dart';
+import '../widgets/dashboard_header_title.dart';
 
 class HRDashboardNew extends StatefulWidget {
   const HRDashboardNew({super.key});
@@ -182,25 +183,9 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
                     ),
                     // Title
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            localizations.translate('hr_dashboard'),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            'DBC Company',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
+                      child: DashboardHeaderTitle(
+                        titleFontSize: 18,
+                        titleColor: Colors.black87,
                       ),
                     ),
                     // Profile Picture (navigates to personal info)

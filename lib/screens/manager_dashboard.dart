@@ -9,6 +9,7 @@ import '../presentation/providers/auth_provider.dart';
 import '../presentation/providers/dashboard_provider.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
+import '../widgets/dashboard_header_title.dart';
 import 'dart:convert';
 
 class ManagerDashboard extends StatefulWidget {
@@ -139,27 +140,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                         const SizedBox(width: 16),
                         // Title
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                localizations.translate('manager_dashboard'),
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                authProvider.user?.name ?? 'Manager',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
+                          child: DashboardHeaderTitle(
+                            titleFontSize: 22,
+                            titleColor: Colors.white,
+                            fallbackName: authProvider.user?.name ?? 'Manager',
                           ),
                         ),
                         // Profile Picture with glow effect

@@ -2649,7 +2649,8 @@ class OdooService {
       if (_cachedLeaveTypes != null && _cachedLeaveTypesAt != null) {
         final cacheAge = DateTime.now().difference(_cachedLeaveTypesAt!);
         if (cacheAge < Duration(hours: 24)) {
-          print('✅ Using cached leave types (${_cachedLeaveTypes!.length} types, age: ${cacheAge.inMinutes} minutes)');
+          print(
+              '✅ Using cached leave types (${_cachedLeaveTypes!.length} types, age: ${cacheAge.inMinutes} minutes)');
           return _cachedLeaveTypes!;
         }
       }
@@ -2662,7 +2663,8 @@ class OdooService {
     if (_cachedLeaveTypes != null && _cachedLeaveTypesAt != null) {
       final cacheAge = DateTime.now().difference(_cachedLeaveTypesAt!);
       if (cacheAge < _defaultCacheTtl) {
-        print('✅ Using cached leave types (${_cachedLeaveTypes!.length} types)');
+        print(
+            '✅ Using cached leave types (${_cachedLeaveTypes!.length} types)');
         return _cachedLeaveTypes!;
       }
     }
@@ -4815,10 +4817,11 @@ class OdooService {
     }
 
     final syncService = SyncService();
-    
+
     // Check if offline - return cached data if available
     if (!syncService.isConnected) {
-      if (_cachedPunchingEntities != null && _cachedPunchingEntitiesAt != null) {
+      if (_cachedPunchingEntities != null &&
+          _cachedPunchingEntitiesAt != null) {
         final cacheAge = DateTime.now().difference(_cachedPunchingEntitiesAt!);
         if (cacheAge < Duration(hours: 24)) {
           print('📴 Offline: Using cached punching entities');
@@ -4826,7 +4829,8 @@ class OdooService {
         }
       }
       // If no cache available offline, return empty list (will use null entiteId)
-      print('📴 Offline: No cached entities available, will proceed without entity');
+      print(
+          '📴 Offline: No cached entities available, will proceed without entity');
       return [];
     }
 
@@ -4891,7 +4895,8 @@ class OdooService {
     } catch (e) {
       print('❌ Error fetching entities: $e');
       // If we have cached entities, return them even if stale
-      if (_cachedPunchingEntities != null && _cachedPunchingEntities!.isNotEmpty) {
+      if (_cachedPunchingEntities != null &&
+          _cachedPunchingEntities!.isNotEmpty) {
         print('⚠️ Using stale cached entities due to error');
         return _cachedPunchingEntities!;
       }
@@ -5006,12 +5011,13 @@ class OdooService {
       print('Using auth_method: $authMethodValue');
 
       // Format check-in time in UTC
-      final checkInFormatted = '${checkIn.year.toString().padLeft(4, '0')}-'
-          '${checkIn.month.toString().padLeft(2, '0')}-'
-          '${checkIn.day.toString().padLeft(2, '0')} '
-          '${checkIn.hour.toString().padLeft(2, '0')}:'
-          '${checkIn.minute.toString().padLeft(2, '0')}:'
-          '${checkIn.second.toString().padLeft(2, '0')}';
+      final checkInUtc = checkIn.toUtc(); // Convert to UTC first
+      final checkInFormatted = '${checkInUtc.year.toString().padLeft(4, '0')}-'
+          '${checkInUtc.month.toString().padLeft(2, '0')}-'
+          '${checkInUtc.day.toString().padLeft(2, '0')} '
+          '${checkInUtc.hour.toString().padLeft(2, '0')}:'
+          '${checkInUtc.minute.toString().padLeft(2, '0')}:'
+          '${checkInUtc.second.toString().padLeft(2, '0')}';
 
       // Create attendance data starting with required fields
       final Map<String, dynamic> attendanceData = {
@@ -5099,13 +5105,15 @@ class OdooService {
       if (lastCheckIn is List && lastCheckIn.isNotEmpty) {
         final attendanceId = lastCheckIn[0]['id'];
 
-        // Format check-out time
-        final checkOutFormatted = '${checkOut.year.toString().padLeft(4, '0')}-'
-            '${checkOut.month.toString().padLeft(2, '0')}-'
-            '${checkOut.day.toString().padLeft(2, '0')} '
-            '${checkOut.hour.toString().padLeft(2, '0')}:'
-            '${checkOut.minute.toString().padLeft(2, '0')}:'
-            '${checkOut.second.toString().padLeft(2, '0')}';
+        // Format check-out time in UTC
+        final checkOutUtc = checkOut.toUtc(); // Convert to UTC first
+        final checkOutFormatted =
+            '${checkOutUtc.year.toString().padLeft(4, '0')}-'
+            '${checkOutUtc.month.toString().padLeft(2, '0')}-'
+            '${checkOutUtc.day.toString().padLeft(2, '0')} '
+            '${checkOutUtc.hour.toString().padLeft(2, '0')}:'
+            '${checkOutUtc.minute.toString().padLeft(2, '0')}:'
+            '${checkOutUtc.second.toString().padLeft(2, '0')}';
 
         final result = await _callRPC('object', 'execute_kw', [
           database,
