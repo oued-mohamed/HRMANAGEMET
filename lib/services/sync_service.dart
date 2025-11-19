@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'odoo_service.dart';
+import 'offline_data_service.dart';
+import 'data_sync_manager.dart';
 
 /// Service to manage offline operations and sync queue
 /// When offline, operations are stored locally and synced automatically when connection is restored
@@ -79,7 +81,14 @@ class SyncService {
 
       if (!wasConnected && _isConnected) {
         print('🌐 Connection restored! Starting sync...');
-        syncPendingOperations();
+        // First sync pending operations, then refresh all data
+        syncPendingOperations().then((_) {
+          // After syncing pending operations, refresh all data
+          final syncManager = DataSyncManager();
+          syncManager.syncAllData().catchError((e) {
+            print('⚠️ Error refreshing data after connection restored: $e');
+          });
+        });
       } else if (wasConnected && !_isConnected) {
         print('📴 Connection lost. Operations will be queued locally.');
       }
@@ -91,7 +100,13 @@ class SyncService {
       print(
           '🌐 Initial connectivity: ${_isConnected ? "Connected" : "Offline"}');
       if (_isConnected) {
-        syncPendingOperations();
+        syncPendingOperations().then((_) {
+          // Refresh data on initial connection
+          final syncManager = DataSyncManager();
+          syncManager.syncAllData().catchError((e) {
+            print('⚠️ Error refreshing data on initial connection: $e');
+          });
+        });
       }
     });
   }
@@ -194,6 +209,13 @@ class SyncService {
         }).toList();
 
         await _savePendingOperations(opsToKeep);
+
+        // Trigger data refresh to update local cache with latest data from server
+        // Don't await - let it run in background
+        final syncManager = DataSyncManager();
+        syncManager.syncAllData().catchError((e) {
+          print('⚠️ Error refreshing data after sync: $e');
+        });
       }
 
       print('✅ Sync completed');

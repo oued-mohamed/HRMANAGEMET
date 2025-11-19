@@ -58,10 +58,10 @@ class HrDocumentRequest(models.Model):
     notes = fields.Text('Notes')
     document_attachment = fields.Many2one('ir.attachment', 'Document généré')
     
-    @api.model
+    @api.modelnoti
     def create(self, vals):
         record = super().create(vals)
-        # Envoyer notification au RH/Manager
+        # Envoyer fication au RH/Manager
         record._notify_hr()
         return record
     

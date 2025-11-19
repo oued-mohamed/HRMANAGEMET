@@ -42,9 +42,13 @@ import 'services/user_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/odoo_service.dart';
 import 'services/sync_service.dart';
+import 'services/offline_data_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize offline data service FIRST (required for Hive)
+  await OfflineDataService().initialize();
 
   // Initialiser le service utilisateur au démarrage
   await UserService.instance.initialize();

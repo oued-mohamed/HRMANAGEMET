@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../services/odoo_service.dart';
+import '../../services/offline_odoo_service.dart';
 
 class LeaveProvider extends ChangeNotifier {
-  final OdooService _odooService = OdooService();
+  final OfflineOdooService _offlineOdooService = OfflineOdooService();
 
   Map<String, dynamic>? _leaveBalance;
   List<Map<String, dynamic>>? _leaveRequests;
@@ -25,7 +25,7 @@ class LeaveProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      _leaveBalance = await _odooService.getLeaveBalance();
+      _leaveBalance = await _offlineOdooService.getLeaveBalance();
       notifyListeners();
     } catch (e) {
       _setError('Failed to load leave balance: ${e.toString()}');
@@ -40,7 +40,7 @@ class LeaveProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      _leaveRequests = await _odooService.getLeaveRequests();
+      _leaveRequests = await _offlineOdooService.getLeaveRequests();
       notifyListeners();
     } catch (e) {
       print('Error loading leave requests: $e');
@@ -54,7 +54,7 @@ class LeaveProvider extends ChangeNotifier {
 
   Future<void> loadApprovedLeaves(int year) async {
     try {
-      _approvedLeaves = await _odooService.getApprovedLeaves(year);
+      _approvedLeaves = await _offlineOdooService.odooService.getApprovedLeaves(year);
       notifyListeners();
     } catch (e) {
       print('Error loading approved leaves: $e');
@@ -68,7 +68,7 @@ class LeaveProvider extends ChangeNotifier {
 
   Future<void> loadPendingLeaves(int year) async {
     try {
-      _pendingLeaves = await _odooService.getPendingLeaves(year);
+      _pendingLeaves = await _offlineOdooService.odooService.getPendingLeaves(year);
       notifyListeners();
     } catch (e) {
       print('Error loading pending leaves: $e');
@@ -82,7 +82,7 @@ class LeaveProvider extends ChangeNotifier {
 
   Future<void> loadMoroccanHolidays(int year) async {
     try {
-      _moroccanHolidays = await _odooService.getMoroccanHolidays(year);
+      _moroccanHolidays = await _offlineOdooService.odooService.getMoroccanHolidays(year);
       notifyListeners();
     } catch (e) {
       print('Error loading Moroccan holidays: $e');
@@ -96,7 +96,7 @@ class LeaveProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      _leaveTypes = await _odooService.getLeaveTypes();
+      _leaveTypes = await _offlineOdooService.getLeaveTypes();
       notifyListeners();
     } catch (e) {
       _setError('Failed to load leave types: ${e.toString()}');
@@ -111,7 +111,7 @@ class LeaveProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      _holidays = await _odooService.getHolidays(year);
+      _holidays = await _offlineOdooService.odooService.getHolidays(year);
       notifyListeners();
     } catch (e) {
       _setError('Failed to load holidays: ${e.toString()}');
@@ -131,7 +131,7 @@ class LeaveProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final leaveId = await _odooService.createLeaveRequest(
+      final leaveId = await _offlineOdooService.createLeaveRequest(
         leaveTypeId: leaveTypeId, // Changed from typeName to leaveTypeId
         dateFrom: dateFrom,
         dateTo: dateTo,
@@ -156,7 +156,7 @@ class LeaveProvider extends ChangeNotifier {
   // Check if date is eligible
   Future<bool> isDateEligible(DateTime date) async {
     try {
-      return await _odooService.isDateEligible(date);
+      return await _offlineOdooService.odooService.isDateEligible(date);
     } catch (e) {
       _setError('Failed to check date eligibility: ${e.toString()}');
       return false;

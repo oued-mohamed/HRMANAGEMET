@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../services/odoo_service.dart';
+import '../../services/offline_odoo_service.dart';
 
 class DashboardProvider extends ChangeNotifier {
+  final OfflineOdooService _offlineOdooService = OfflineOdooService();
   Map<String, dynamic>? _teamStats;
   bool _isLoading = false;
   DateTime? _lastFetchTime;
@@ -30,7 +31,7 @@ class DashboardProvider extends ChangeNotifier {
     }
 
     try {
-      final stats = await OdooService().getTeamStatistics(
+      final stats = await _offlineOdooService.getTeamStatistics(
         forceRefresh: forceRefresh || !isCacheValid || !hasData,
       );
       _teamStats = stats;
