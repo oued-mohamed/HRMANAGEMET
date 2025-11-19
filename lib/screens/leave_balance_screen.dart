@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
-import '../services/user_service.dart';
-import '../data/models/user_model.dart';
 import '../utils/navigation_helpers.dart';
+import '../utils/responsive_helper.dart';
 
 class LeaveBalanceScreen extends StatefulWidget {
   const LeaveBalanceScreen({super.key});
@@ -47,17 +46,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen dimensions for responsive design
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-    final isMediumScreen = screenWidth >= 600 && screenWidth < 900;
-
-    // Responsive values
-    final horizontalPadding =
-        isSmallScreen ? 16.0 : (isMediumScreen ? 32.0 : 64.0);
-    final cardPadding = isSmallScreen ? 16.0 : 20.0;
-    final headerIconSize = isSmallScreen ? 40.0 : 48.0;
-    final headerTitleSize = isSmallScreen ? 20.0 : 24.0;
+    // Use ResponsiveHelper for consistent breakpoints
 
     return PopScope(
       canPop: false,
@@ -175,13 +164,15 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                   child: Center(
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalPadding,
-                        vertical: 16,
-                      ),
+                      padding: ResponsiveHelper.responsivePadding(context),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 800, // Max width for large screens
+                        constraints: BoxConstraints(
+                          maxWidth: ResponsiveHelper.responsiveValue(
+                            context,
+                            mobile: double.infinity,
+                            tablet: 800.0,
+                            desktop: 1000.0,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -190,12 +181,18 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                             Card(
                               elevation: 8,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(
+                                  ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0),
+                                ),
                               ),
                               child: Container(
-                                padding: EdgeInsets.all(cardPadding),
+                                padding: EdgeInsets.all(
+                                  ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
+                                ),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(
+                                    ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0),
+                                  ),
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
@@ -209,24 +206,24 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                                   children: [
                                     Icon(
                                       Icons.account_balance_wallet_outlined,
-                                      size: headerIconSize,
+                                      size: ResponsiveHelper.responsiveIconSize(context, mobile: 40.0, tablet: 48.0, desktop: 56.0),
                                       color: const Color(0xFF000B58),
                                     ),
-                                    SizedBox(height: isSmallScreen ? 8 : 12),
+                                    SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 8)),
                                     Text(
                                       'Votre solde de congés',
                                       style: TextStyle(
-                                        fontSize: headerTitleSize,
+                                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
                                         fontWeight: FontWeight.bold,
                                         color: const Color(0xFF000B58),
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
-                                    SizedBox(height: isSmallScreen ? 6 : 8),
+                                    SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0)),
                                     Text(
                                       'Mis à jour: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
                                       style: TextStyle(
-                                        fontSize: isSmallScreen ? 12 : 14,
+                                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 12.0, tablet: 14.0, desktop: 16.0),
                                         color: Colors.grey[600],
                                       ),
                                     ),
@@ -234,18 +231,18 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: isSmallScreen ? 16 : 24),
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
 
                             // Balance Grid - 4 items per row
-                            _buildBalanceGrid(balance, isSmallScreen, context),
+                            _buildBalanceGrid(balance, context),
 
-                            SizedBox(height: isSmallScreen ? 16 : 24),
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
 
                             // Leave Requests Section
                             _buildLeaveRequestsSection(
-                                context, leaveProvider, isSmallScreen),
+                                context, leaveProvider),
 
-                            SizedBox(height: isSmallScreen ? 16 : 24),
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
 
                             // Info Card
                             Card(
@@ -255,20 +252,20 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                               ),
                               child: Padding(
                                 padding:
-                                    EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                    EdgeInsets.all(ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 16.0)),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.info_outline,
                                       color: Colors.blue[700],
-                                      size: isSmallScreen ? 20 : 24,
+                                      size: ResponsiveHelper.responsiveIconSize(context, mobile: 20.0, tablet: 24.0),
                                     ),
-                                    SizedBox(width: isSmallScreen ? 8 : 12),
+                                    SizedBox(width: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
                                     Expanded(
                                       child: Text(
                                         'Tirez vers le bas pour actualiser le solde',
                                         style: TextStyle(
-                                          fontSize: isSmallScreen ? 12 : 14,
+                                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 12.0, tablet: 14.0),
                                           color: Colors.grey[700],
                                         ),
                                       ),
@@ -292,7 +289,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
   }
 
   Widget _buildBalanceGrid(
-      Map<String, dynamic> balance, bool isSmallScreen, BuildContext context) {
+      Map<String, dynamic> balance, BuildContext context) {
     final entries = balance.entries.toList();
 
     // Split entries into rows of 3
@@ -329,9 +326,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
 
                       return Expanded(
                         child: Container(
-                          height: isSmallScreen
-                              ? 110
-                              : 125, // Reduced height after removing icons
+                          height: ResponsiveHelper.responsiveValue(context, mobile: 110.0, tablet: 125.0),
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
@@ -343,14 +338,14 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                             ),
                           ),
                           child: _buildLeaveTypeCard(
-                              context, leaveType, days, isSmallScreen, false),
+                              context, leaveType, days, false),
                         ),
                       );
                     } else {
                       // Empty cell
                       return Expanded(
                         child: Container(
-                          height: isSmallScreen ? 110 : 125,
+                          height: ResponsiveHelper.responsiveValue(context, mobile: 110.0, tablet: 125.0),
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
@@ -380,16 +375,16 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
   }
 
   Widget _buildLeaveTypeCard(BuildContext context, String leaveType,
-      dynamic days, bool isSmallScreen, bool showCard) {
+      dynamic days, bool showCard) {
     return InkWell(
       onTap: () {
-        _showLeaveTypeDetails(context, leaveType, days, isSmallScreen);
+        _showLeaveTypeDetails(context, leaveType, days);
       },
       child: Container(
         width: double.infinity,
         height: double.infinity,
         padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 12,
+          horizontal: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0),
           vertical: 0, // No vertical padding - we'll add spacing in Column
         ),
         child: Column(
@@ -397,14 +392,14 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Top spacing - reduced after removing icon
-            SizedBox(height: isSmallScreen ? 8 : 10),
+            SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0)),
             // Leave Type Name - centered
             Expanded(
               child: Center(
                 child: Text(
                   leaveType,
                   style: TextStyle(
-                    fontSize: isSmallScreen ? 11 : 13,
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 11.0, tablet: 13.0),
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -415,12 +410,12 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
               ),
             ),
             // Bottom spacing before badge
-            SizedBox(height: isSmallScreen ? 4 : 6),
+            SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0)),
             // Days Count Badge at bottom
             Container(
               padding: EdgeInsets.symmetric(
-                horizontal: isSmallScreen ? 6 : 8,
-                vertical: isSmallScreen ? 3 : 4,
+                horizontal: ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0),
+                vertical: ResponsiveHelper.responsiveValue(context, mobile: 3.0, tablet: 4.0),
               ),
               decoration: BoxDecoration(
                 color: _getColorForDays(days).withOpacity(0.1),
@@ -436,7 +431,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                   Text(
                     days.toStringAsFixed(days % 1 == 0 ? 0 : 1),
                     style: TextStyle(
-                      fontSize: isSmallScreen ? 14 : 16,
+                      fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0),
                       fontWeight: FontWeight.bold,
                       color: _getColorForDays(days),
                     ),
@@ -445,7 +440,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                   Text(
                     'jours',
                     style: TextStyle(
-                      fontSize: isSmallScreen ? 8 : 9,
+                      fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 8.0, tablet: 9.0),
                       fontWeight: FontWeight.w600,
                       color: _getColorForDays(days),
                     ),
@@ -454,7 +449,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
               ),
             ),
             // Bottom spacing - reduced after removing icon
-            SizedBox(height: isSmallScreen ? 6 : 8),
+            SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0)),
           ],
         ),
       ),
@@ -495,7 +490,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
   }
 
   void _showLeaveTypeDetails(BuildContext context, String leaveType,
-      dynamic days, bool isSmallScreen) {
+      dynamic days) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -507,14 +502,14 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
             Icon(
               _getIconForLeaveType(leaveType),
               color: const Color(0xFF000B58),
-              size: isSmallScreen ? 20 : 24,
+              size: ResponsiveHelper.responsiveIconSize(context, mobile: 20.0, tablet: 24.0),
             ),
-            SizedBox(width: isSmallScreen ? 8 : 12),
+            SizedBox(width: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
             Expanded(
               child: Text(
                 leaveType,
                 style: TextStyle(
-                  fontSize: isSmallScreen ? 18 : 20,
+                  fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 18.0, tablet: 20.0),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -605,7 +600,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
   }
 
   Widget _buildLeaveRequestsSection(
-      BuildContext context, LeaveProvider leaveProvider, bool isSmallScreen) {
+      BuildContext context, LeaveProvider leaveProvider) {
     final requests = leaveProvider.leaveRequests ?? [];
 
     if (requests.isEmpty) {
@@ -615,7 +610,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: Padding(
-          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          padding: EdgeInsets.all(ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0)),
           child: Column(
             children: [
               Row(
@@ -623,13 +618,13 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                   Icon(
                     Icons.event_note,
                     color: const Color(0xFF000B58),
-                    size: isSmallScreen ? 24 : 28,
+                    size: ResponsiveHelper.responsiveIconSize(context, mobile: 24.0, tablet: 28.0),
                   ),
-                  SizedBox(width: isSmallScreen ? 8 : 12),
+                  SizedBox(width: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
                   Text(
                     'Mes demandes de congés',
                     style: TextStyle(
-                      fontSize: isSmallScreen ? 18 : 20,
+                      fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 18.0, tablet: 20.0),
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF000B58),
                     ),
@@ -640,7 +635,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
               Text(
                 'Aucune demande de congé',
                 style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
+                  fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0),
                   color: Colors.grey[600],
                 ),
               ),
@@ -674,7 +669,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+        padding: EdgeInsets.all(ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -683,20 +678,20 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                 Icon(
                   Icons.event_note,
                   color: const Color(0xFF000B58),
-                  size: isSmallScreen ? 24 : 28,
+                  size: ResponsiveHelper.responsiveIconSize(context, mobile: 24.0, tablet: 28.0),
                 ),
-                SizedBox(width: isSmallScreen ? 8 : 12),
+                SizedBox(width: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
                 Text(
                   'Mes demandes de congés',
                   style: TextStyle(
-                    fontSize: isSmallScreen ? 18 : 20,
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 18.0, tablet: 20.0),
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF000B58),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
+            SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 16.0)),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -712,7 +707,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                     child: Text(
                       'Le solde affiché ci-dessus ne compte que les congés approuvés.',
                       style: TextStyle(
-                        fontSize: isSmallScreen ? 11 : 12,
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 11.0, tablet: 12.0),
                         color: Colors.blue[900],
                       ),
                     ),
@@ -720,7 +715,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                 ],
               ),
             ),
-            SizedBox(height: isSmallScreen ? 16 : 20),
+            SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0)),
             // Show requests grouped by type
             ...groupedByType.entries.map((entry) {
               final typeName = entry.key;
@@ -742,7 +737,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                         Text(
                           typeName,
                           style: TextStyle(
-                            fontSize: isSmallScreen ? 16 : 18,
+                            fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 16.0, tablet: 18.0),
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF000B58),
                           ),
@@ -751,9 +746,9 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                     ),
                   ),
                   ...typeRequests.map((request) {
-                    return _buildLeaveRequestCard(request, isSmallScreen);
+                    return _buildLeaveRequestCard(request);
                   }),
-                  SizedBox(height: isSmallScreen ? 16 : 20),
+                  SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
                 ],
               );
             }),
@@ -764,7 +759,7 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
   }
 
   Widget _buildLeaveRequestCard(
-      Map<String, dynamic> request, bool isSmallScreen) {
+      Map<String, dynamic> request) {
     final state = request['state']?.toString() ?? 'unknown';
     final statusId = request['holiday_status_id'];
     String typeName = 'Inconnu';
@@ -814,8 +809,8 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
     IconData statusIcon = _getStatusIcon(state);
 
     return Container(
-      margin: EdgeInsets.only(bottom: isSmallScreen ? 8 : 12),
-      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      margin: EdgeInsets.only(bottom: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
+      padding: EdgeInsets.all(ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 16.0)),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
@@ -833,16 +828,16 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                     Text(
                       dateFrom == dateTo ? dateFrom : '$dateFrom - $dateTo',
                       style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 16,
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0),
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: isSmallScreen ? 4 : 6),
+                    SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0)),
                     Text(
                       '${days.toStringAsFixed(days % 1 == 0 ? 0 : 1)} jour${days != 1.0 ? 's' : ''}',
                       style: TextStyle(
-                        fontSize: isSmallScreen ? 12 : 14,
+                        fontSize: ResponsiveHelper.isMobile(context) ? 12 : 14,
                         color: Colors.grey[600],
                       ),
                     ),
@@ -851,8 +846,8 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
               ),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isSmallScreen ? 8 : 12,
-                  vertical: isSmallScreen ? 4 : 6,
+                  horizontal: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0),
+                  vertical: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0),
                 ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
@@ -863,11 +858,11 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(statusIcon, size: 14, color: statusColor),
-                    SizedBox(width: isSmallScreen ? 4 : 6),
+                    SizedBox(width: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0)),
                     Text(
                       statusText,
                       style: TextStyle(
-                        fontSize: isSmallScreen ? 11 : 12,
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 11.0, tablet: 12.0),
                         fontWeight: FontWeight.w600,
                         color: statusColor,
                       ),
@@ -879,11 +874,11 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
           ),
           if (request['name'] != null && request['name'].toString().isNotEmpty)
             Padding(
-              padding: EdgeInsets.only(top: isSmallScreen ? 8 : 12),
+              padding: EdgeInsets.only(top: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0)),
               child: Text(
                 request['name'].toString(),
                 style: TextStyle(
-                  fontSize: isSmallScreen ? 12 : 14,
+                  fontSize: ResponsiveHelper.isMobile(context) ? 12 : 14,
                   color: Colors.grey[700],
                   fontStyle: FontStyle.italic,
                 ),

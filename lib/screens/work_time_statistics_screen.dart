@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/navigation_helpers.dart';
+import '../utils/responsive_helper.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
-import '../services/user_service.dart';
-import '../data/models/user_model.dart';
 
 class WorkTimeStatisticsScreen extends StatefulWidget {
   const WorkTimeStatisticsScreen({super.key});
@@ -119,35 +118,73 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
                     }
 
                     final stats = statistics.isNotEmpty ? statistics[0] : {};
+                    final isTablet = ResponsiveHelper.isTablet(context);
+                    final isDesktop = ResponsiveHelper.isDesktop(context);
 
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildStatCard(
-                          context,
-                          'Total Hours',
-                          _formatHours(stats['total_hours'] ?? 0.0),
-                          Icons.access_time,
-                          Colors.blue,
+                    // Use GridView for tablets/desktop, ListView for mobile
+                    if (isTablet || isDesktop) {
+                      return Padding(
+                        padding: ResponsiveHelper.responsivePadding(context),
+                        child: GridView.count(
+                          crossAxisCount: ResponsiveHelper.gridColumns(context),
+                          crossAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 16),
+                          mainAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 16),
+                          childAspectRatio: 1.1,
+                          children: [
+                            _buildStatCard(
+                              context,
+                              'Total Hours',
+                              _formatHours(stats['total_hours'] ?? 0.0),
+                              Icons.access_time,
+                              Colors.blue,
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Work Days',
+                              stats['work_days']?.toString() ?? '0',
+                              Icons.calendar_today,
+                              Colors.green,
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Average per Day',
+                              _formatHours(stats['avg_hours'] ?? 0.0),
+                              Icons.trending_up,
+                              Colors.orange,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        _buildStatCard(
-                          context,
-                          'Work Days',
-                          stats['work_days']?.toString() ?? '0',
-                          Icons.calendar_today,
-                          Colors.green,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatCard(
-                          context,
-                          'Average per Day',
-                          _formatHours(stats['avg_hours'] ?? 0.0),
-                          Icons.trending_up,
-                          Colors.orange,
-                        ),
-                      ],
-                    );
+                      );
+                    } else {
+                      return ListView(
+                        padding: ResponsiveHelper.responsivePadding(context),
+                        children: [
+                          _buildStatCard(
+                            context,
+                            'Total Hours',
+                            _formatHours(stats['total_hours'] ?? 0.0),
+                            Icons.access_time,
+                            Colors.blue,
+                          ),
+                          SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
+                          _buildStatCard(
+                            context,
+                            'Work Days',
+                            stats['work_days']?.toString() ?? '0',
+                            Icons.calendar_today,
+                            Colors.green,
+                          ),
+                          SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
+                          _buildStatCard(
+                            context,
+                            'Average per Day',
+                            _formatHours(stats['avg_hours'] ?? 0.0),
+                            Icons.trending_up,
+                            Colors.orange,
+                          ),
+                        ],
+                      );
+                    }
                   },
                 ),
               ),
@@ -161,29 +198,34 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
 
   Widget _buildPeriodSelector(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      margin: ResponsiveHelper.responsivePadding(context),
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 8.0),
+        vertical: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0),
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(
+          ResponsiveHelper.responsiveBorderRadius(context, mobile: 12.0, tablet: 16.0),
+        ),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _buildPeriodButton('day', 'Day'),
+            child: _buildPeriodButton(context, 'day', 'Day'),
           ),
           Expanded(
-            child: _buildPeriodButton('week', 'Week'),
+            child: _buildPeriodButton(context, 'week', 'Week'),
           ),
           Expanded(
-            child: _buildPeriodButton('month', 'Month'),
+            child: _buildPeriodButton(context, 'month', 'Month'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodButton(String period, String label) {
+  Widget _buildPeriodButton(BuildContext context, String period, String label) {
     final isSelected = _selectedPeriod == period;
     return GestureDetector(
       onTap: () {
@@ -192,10 +234,14 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: EdgeInsets.symmetric(
+          vertical: ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 16.0),
+        ),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(
+            ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 12.0),
+          ),
         ),
         child: Text(
           label,
@@ -203,6 +249,7 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
           style: TextStyle(
             color: isSelected ? const Color(0xFF000B58) : Colors.white,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0),
           ),
         ),
       ),
@@ -211,11 +258,19 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
 
   Widget _buildStatCard(BuildContext context, String title, String value,
       IconData icon, Color color) {
+    final isTablet = ResponsiveHelper.isTablet(context);
+    final isDesktop = ResponsiveHelper.isDesktop(context);
+    final useVerticalLayout = isTablet || isDesktop;
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(
+        ResponsiveHelper.responsiveValue(context, mobile: 20.0, tablet: 28.0, desktop: 32.0),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(
+          ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -224,45 +279,86 @@ class _WorkTimeStatisticsScreenState extends State<WorkTimeStatisticsScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: useVerticalLayout
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                Container(
+                  padding: EdgeInsets.all(
+                    ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: ResponsiveHelper.responsiveIconSize(context, mobile: 32.0, tablet: 48.0, desktop: 56.0),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0, desktop: 18.0),
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 8.0)),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 24,
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 24.0, tablet: 32.0, desktop: 40.0),
                     fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(
+                    ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0),
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: ResponsiveHelper.responsiveIconSize(context, mobile: 32.0, tablet: 40.0),
+                  ),
+                ),
+                SizedBox(width: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 14.0, tablet: 16.0),
+                          color: Colors.grey,
+                        ),
+                      ),
+                      SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 8.0)),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 24.0, tablet: 28.0),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 

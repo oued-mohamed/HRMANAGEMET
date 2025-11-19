@@ -5,6 +5,7 @@ import '../widgets/manager_drawer.dart';
 import '../widgets/last_notification_widget.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../presentation/providers/dashboard_provider.dart';
 import '../data/models/user_model.dart';
@@ -157,9 +158,11 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                     notification: _lastNotification,
                     isLoading: _isLoadingLastNotification,
                     notificationsRoute: '/manager-notifications',
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    margin: EdgeInsets.symmetric(
+                      horizontal: ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 24.0),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
 
                   // Content
                   Expanded(
@@ -192,40 +195,69 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                               ]);
                             },
                             color: const Color(0xFF667eea),
-                            child: SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Section Title
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: Row(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final crossAxisCount = ResponsiveHelper.responsiveValue(
+                                  context,
+                                  mobile: 2,
+                                  tablet: 3,
+                                  desktop: 4,
+                                );
+                                final childAspectRatio = ResponsiveHelper.responsiveValue(
+                                  context,
+                                  mobile: 1.0,
+                                  tablet: 1.1,
+                                  desktop: 1.2,
+                                );
+
+                                return SingleChildScrollView(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: ResponsiveHelper.responsivePadding(context),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: ResponsiveHelper.responsiveValue(
+                                        context,
+                                        mobile: double.infinity,
+                                        tablet: 1200.0,
+                                        desktop: 1400.0,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          localizations
-                                              .translate('team_management'),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.5,
+                                        // Section Title
+                                        Padding(
+                                          padding: EdgeInsets.only(
+                                            bottom: ResponsiveHelper.responsiveSpacing(context, mobile: 16),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                localizations.translate('team_management'),
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: ResponsiveHelper.responsiveFontSize(
+                                                    context,
+                                                    mobile: 24.0,
+                                                    tablet: 28.0,
+                                                    desktop: 32.0,
+                                                  ),
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
 
-                                  // Stats Grid with improved design
-                                  GridView.count(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    crossAxisCount: 2,
-                                    mainAxisSpacing: 16,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: 1.0,
+                                        // Stats Grid with improved design
+                                        GridView.count(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          crossAxisCount: crossAxisCount,
+                                          mainAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 16),
+                                          crossAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 16),
+                                          childAspectRatio: childAspectRatio,
                                     children: [
                                       _buildModernStatCard(
                                         localizations.translate('team_size'),
@@ -275,32 +307,35 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         const Color(0xFF7C3AED),
                                         localizations,
                                       ),
+                                        ],
+                                      ),
+
+                                      SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 24)),
+
+                                      // Team Activity Section with modern card
+                                      _buildModernActivityCard(
+                                          localizations, dashboardProvider),
+
+                                      SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 20)),
+
+                                      // Team Members Section
+                                      if (dashboardProvider
+                                                  .teamStats?['team_members'] !=
+                                              null &&
+                                          (dashboardProvider
+                                                      .teamStats!['team_members']
+                                                  as List)
+                                              .isNotEmpty)
+                                        _buildModernTeamMembersCard(
+                                            localizations, dashboardProvider),
+
+                                      SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 20)),
                                     ],
                                   ),
-
-                                  const SizedBox(height: 24),
-
-                                  // Team Activity Section with modern card
-                                  _buildModernActivityCard(
-                                      localizations, dashboardProvider),
-
-                                  const SizedBox(height: 20),
-
-                                  // Team Members Section
-                                  if (dashboardProvider
-                                              .teamStats?['team_members'] !=
-                                          null &&
-                                      (dashboardProvider
-                                                  .teamStats!['team_members']
-                                              as List)
-                                          .isNotEmpty)
-                                    _buildModernTeamMembersCard(
-                                        localizations, dashboardProvider),
-
-                                  const SizedBox(height: 20),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
+                          ),
                           ),
                   ),
                 ],
@@ -321,10 +356,6 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     AppLocalizations localizations, {
     VoidCallback? onTap,
   }) {
-    // Detect screen size for responsive design
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 380;
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -332,41 +363,51 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           end: Alignment.bottomRight,
           colors: [startColor, endColor],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(
+          ResponsiveHelper.responsiveBorderRadius(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
+        ),
         boxShadow: [
           BoxShadow(
             color: startColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            blurRadius: ResponsiveHelper.responsiveValue(context, mobile: 15.0, tablet: 20.0),
+            offset: Offset(0, ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0)),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(
+            ResponsiveHelper.responsiveBorderRadius(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
+          ),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+            padding: EdgeInsets.all(
+              ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 16.0, desktop: 20.0),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Icon at the top-left
                 Container(
-                  padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                  padding: EdgeInsets.all(
+                    ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0, desktop: 10.0),
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(
+                      ResponsiveHelper.responsiveValue(context, mobile: 10.0, tablet: 12.0),
+                    ),
                   ),
                   child: Icon(
                     icon,
                     color: Colors.white,
-                    size: isSmallScreen ? 20 : 26,
+                    size: ResponsiveHelper.responsiveIconSize(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
                   ),
                 ),
                 // Flexible spacing
-                SizedBox(height: isSmallScreen ? 8 : 12),
+                SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 8)),
                 // Value and title - use Expanded to prevent overflow
                 Expanded(
                   child: Column(
@@ -377,7 +418,12 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                         child: Text(
                           value,
                           style: TextStyle(
-                            fontSize: isSmallScreen ? 24 : 32,
+                            fontSize: ResponsiveHelper.responsiveFontSize(
+                              context,
+                              mobile: 24.0,
+                              tablet: 28.0,
+                              desktop: 32.0,
+                            ),
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -385,12 +431,17 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(height: isSmallScreen ? 4 : 6),
+                      SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 4.0, tablet: 6.0)),
                       Flexible(
                         child: Text(
                           title,
                           style: TextStyle(
-                            fontSize: isSmallScreen ? 10 : 12,
+                            fontSize: ResponsiveHelper.responsiveFontSize(
+                              context,
+                              mobile: 10.0,
+                              tablet: 12.0,
+                              desktop: 14.0,
+                            ),
                             color: Colors.white.withOpacity(0.9),
                             fontWeight: FontWeight.w500,
                             height: 1.2,
@@ -450,20 +501,20 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.notifications_active,
                   color: Colors.white,
-                  size: 24,
+                  size: ResponsiveHelper.responsiveIconSize(context, mobile: 24.0, tablet: 28.0),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: ResponsiveHelper.responsiveSpacing(context, mobile: 12)),
               Expanded(
                 child: Text(
                   localizations.translate('team_activity'),
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2d3436),
+                    color: const Color(0xFF2d3436),
                   ),
                 ),
               ),
@@ -488,7 +539,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 20)),
           if (pendingRequests.isEmpty)
             Center(
               child: Padding(
@@ -673,15 +724,19 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(
+        ResponsiveHelper.responsiveValue(context, mobile: 24.0, tablet: 28.0, desktop: 32.0),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(
+          ResponsiveHelper.responsiveBorderRadius(context, mobile: 24.0, tablet: 28.0, desktop: 32.0),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: ResponsiveHelper.responsiveValue(context, mobile: 20.0, tablet: 24.0),
+            offset: Offset(0, ResponsiveHelper.responsiveValue(context, mobile: 10.0, tablet: 12.0)),
           ),
         ],
       ),
@@ -691,27 +746,31 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(
+                  ResponsiveHelper.responsiveValue(context, mobile: 10.0, tablet: 12.0),
+                ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF000B58), Color(0xFF000B58)],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(
+                    ResponsiveHelper.responsiveValue(context, mobile: 12.0, tablet: 14.0),
+                  ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.groups,
                   color: Colors.white,
-                  size: 24,
+                  size: ResponsiveHelper.responsiveIconSize(context, mobile: 24.0, tablet: 28.0),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: ResponsiveHelper.responsiveSpacing(context, mobile: 12)),
               Expanded(
                 child: Text(
                   localizations.translate('team_members'),
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 20.0, tablet: 24.0, desktop: 28.0),
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2d3436),
+                    color: const Color(0xFF2d3436),
                   ),
                 ),
               ),
@@ -735,7 +794,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 20)),
           if (teamMembers.isEmpty)
             Center(
               child: Padding(

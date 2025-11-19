@@ -6,6 +6,7 @@ import '../widgets/last_notification_widget.dart';
 import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 import '../services/user_service.dart';
 import '../services/odoo_service.dart';
 import '../services/notification_service.dart';
@@ -288,175 +289,272 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
               // Metrics Cards Grid
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      // Top Row Cards
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Consumer<LeaveProvider>(
-                              builder: (context, leaveProvider, child) {
-                                // Calculate total remaining days from balance
-                                String totalDays = '-';
-                                if (leaveProvider.leaveBalance != null &&
-                                    leaveProvider.leaveBalance!.isNotEmpty) {
-                                  double total = 0;
-                                  leaveProvider.leaveBalance!
-                                      .forEach((key, value) {
-                                    if (value is num) {
-                                      total += value.toDouble();
-                                    }
-                                  });
-                                  totalDays = total.toStringAsFixed(0);
-                                }
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isTablet = ResponsiveHelper.isTablet(context);
+                    final isDesktop = ResponsiveHelper.isDesktop(context);
+                    final crossAxisCount = ResponsiveHelper.gridColumns(context);
 
-                                return _buildMetricCard(
-                                  title: localizations
-                                      .translate('leave_balance_remaining'),
+                    // Use GridView for tablets/desktop, Row-based layout for mobile
+                    if (isTablet || isDesktop) {
+                      return SingleChildScrollView(
+                        padding: ResponsiveHelper.responsivePadding(context),
+                        child: Consumer<LeaveProvider>(
+                          builder: (context, leaveProvider, child) {
+                            // Calculate total remaining days from balance
+                            String totalDays = '-';
+                            if (leaveProvider.leaveBalance != null &&
+                                leaveProvider.leaveBalance!.isNotEmpty) {
+                              double total = 0;
+                              leaveProvider.leaveBalance!.forEach((key, value) {
+                                if (value is num) {
+                                  total += value.toDouble();
+                                }
+                              });
+                              totalDays = total.toStringAsFixed(0);
+                            }
+
+                            return GridView.count(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 12),
+                              mainAxisSpacing: ResponsiveHelper.responsiveSpacing(context, mobile: 12),
+                              childAspectRatio: 0.85,
+                              children: [
+                                _buildMetricCard(
+                                  title: localizations.translate('leave_balance_remaining'),
                                   value: totalDays,
-                                  subtitle:
-                                      localizations.translate('days_available'),
+                                  subtitle: localizations.translate('days_available'),
                                   color: const Color(0xFF35BF8C),
                                   chart: _buildBarChart(),
                                   onTap: () {
-                                    Navigator.pushNamed(
-                                        context, '/leave-balance');
+                                    Navigator.pushNamed(context, '/leave-balance');
                                   },
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMetricCard(
-                              title: localizations.translate('requests_status'),
-                              subtitle: localizations.translate('in_progress'),
-                              value: _isLoadingLeaveRequests
-                                  ? '...'
-                                  : _pendingLeaveRequestsCount.toString(),
-                              color: const Color(0xFF8B5CF6),
-                              chart: _pendingLeaveRequestsCount > 0
-                                  ? _buildCircularProgress(
-                                      _pendingLeaveRequestsCount > 10
-                                          ? 1.0
-                                          : _pendingLeaveRequestsCount / 10)
-                                  : _buildCircularProgress(0.0),
-                              onTap: () {
-                                Navigator.pushNamed(
-                                    context, '/employee-leave-requests');
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Bottom Row Cards
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildNotificationCard(
-                              title:
-                                  localizations.translate('hr_notifications'),
-                              value: _isLoadingNotifications
-                                  ? '-'
-                                  : _unreadCount.toString(),
-                              subtitle: localizations.translate('unread'),
-                              color: const Color(0xFF000B58),
-                              onTap: () {
-                                Navigator.pushNamed(
-                                    context, '/employee-notifications');
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMetricCard(
-                              title: localizations.translate('working_period'),
-                              value: _isLoadingWeeklyHours
-                                  ? '...'
-                                  : _formatHours(_weeklyHours),
-                              subtitle:
-                                  localizations.translate('approved_this_week'),
-                              color: Colors.white,
-                              textColor: Colors.black87,
-                              chart: _buildLineChart(),
-                              onTap: () {
-                                Navigator.pushNamed(
-                                    context, '/work-time-statistics');
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Team Statistics Section
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
+                                ),
+                                _buildMetricCard(
+                                  title: localizations.translate('requests_status'),
+                                  subtitle: localizations.translate('in_progress'),
+                                  value: _isLoadingLeaveRequests
+                                      ? '...'
+                                      : _pendingLeaveRequestsCount.toString(),
+                                  color: const Color(0xFF8B5CF6),
+                                  chart: _pendingLeaveRequestsCount > 0
+                                      ? _buildCircularProgress(
+                                          _pendingLeaveRequestsCount > 10
+                                              ? 1.0
+                                              : _pendingLeaveRequestsCount / 10)
+                                      : _buildCircularProgress(0.0),
+                                  onTap: () {
+                                    Navigator.pushNamed(context, '/employee-leave-requests');
+                                  },
+                                ),
+                                _buildNotificationCard(
+                                  title: localizations.translate('hr_notifications'),
+                                  value: _isLoadingNotifications
+                                      ? '-'
+                                      : _unreadCount.toString(),
+                                  subtitle: localizations.translate('unread'),
+                                  color: const Color(0xFF000B58),
+                                  onTap: () {
+                                    Navigator.pushNamed(context, '/employee-notifications');
+                                  },
+                                ),
+                                _buildMetricCard(
+                                  title: localizations.translate('working_period'),
+                                  value: _isLoadingWeeklyHours
+                                      ? '...'
+                                      : _formatHours(_weeklyHours),
+                                  subtitle: localizations.translate('approved_this_week'),
+                                  color: Colors.white,
+                                  textColor: Colors.black87,
+                                  chart: _buildLineChart(),
+                                  onTap: () {
+                                    Navigator.pushNamed(context, '/work-time-statistics');
+                                  },
+                                ),
+                              ],
+                            );
+                          },
                         ),
+                      );
+                    } else {
+                      // Mobile layout - keep existing Row-based layout
+                      return SingleChildScrollView(
+                        padding: ResponsiveHelper.responsivePadding(context),
                         child: Column(
                           children: [
+                            // Top Row Cards
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  localizations.translate('team_statistics'),
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                Expanded(
+                                  child: Consumer<LeaveProvider>(
+                                    builder: (context, leaveProvider, child) {
+                                      // Calculate total remaining days from balance
+                                      String totalDays = '-';
+                                      if (leaveProvider.leaveBalance != null &&
+                                          leaveProvider.leaveBalance!.isNotEmpty) {
+                                        double total = 0;
+                                        leaveProvider.leaveBalance!
+                                            .forEach((key, value) {
+                                          if (value is num) {
+                                            total += value.toDouble();
+                                          }
+                                        });
+                                        totalDays = total.toStringAsFixed(0);
+                                      }
+
+                                      return _buildMetricCard(
+                                        title: localizations
+                                            .translate('leave_balance_remaining'),
+                                        value: totalDays,
+                                        subtitle:
+                                            localizations.translate('days_available'),
+                                        color: const Color(0xFF35BF8C),
+                                        chart: _buildBarChart(),
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                              context, '/leave-balance');
+                                        },
+                                      );
+                                    },
                                   ),
                                 ),
-                                Text(
-                                  '< ${localizations.translate('filter')}',
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
+                                SizedBox(width: ResponsiveHelper.responsiveSpacing(context, mobile: 12)),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: localizations.translate('requests_status'),
+                                    subtitle: localizations.translate('in_progress'),
+                                    value: _isLoadingLeaveRequests
+                                        ? '...'
+                                        : _pendingLeaveRequestsCount.toString(),
+                                    color: const Color(0xFF8B5CF6),
+                                    chart: _pendingLeaveRequestsCount > 0
+                                        ? _buildCircularProgress(
+                                            _pendingLeaveRequestsCount > 10
+                                                ? 1.0
+                                                : _pendingLeaveRequestsCount / 10)
+                                        : _buildCircularProgress(0.0),
+                                    onTap: () {
+                                      Navigator.pushNamed(
+                                          context, '/employee-leave-requests');
+                                    },
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            // Team members placeholder
-                            Container(
-                              height: 120,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  localizations
-                                      .translate('team_statistics_data'),
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
+
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 12)),
+
+                            // Bottom Row Cards
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildNotificationCard(
+                                    title:
+                                        localizations.translate('hr_notifications'),
+                                    value: _isLoadingNotifications
+                                        ? '-'
+                                        : _unreadCount.toString(),
+                                    subtitle: localizations.translate('unread'),
+                                    color: const Color(0xFF000B58),
+                                    onTap: () {
+                                      Navigator.pushNamed(
+                                          context, '/employee-notifications');
+                                    },
                                   ),
                                 ),
+                                SizedBox(width: ResponsiveHelper.responsiveSpacing(context, mobile: 12)),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: localizations.translate('working_period'),
+                                    value: _isLoadingWeeklyHours
+                                        ? '...'
+                                        : _formatHours(_weeklyHours),
+                                    subtitle:
+                                        localizations.translate('approved_this_week'),
+                                    color: Colors.white,
+                                    textColor: Colors.black87,
+                                    chart: _buildLineChart(),
+                                    onTap: () {
+                                      Navigator.pushNamed(
+                                          context, '/work-time-statistics');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 24)),
+
+                            // Team Statistics Section
+                            Container(
+                              padding: ResponsiveHelper.responsivePadding(context),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        localizations.translate('team_statistics'),
+                                        style: TextStyle(
+                                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 20.0, tablet: 24.0),
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      Text(
+                                        '< ${localizations.translate('filter')}',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 16.0, tablet: 18.0),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 16)),
+                                  // Team members placeholder
+                                  Container(
+                                    height: ResponsiveHelper.responsiveValue(context, mobile: 120.0, tablet: 160.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(
+                                        ResponsiveHelper.responsiveBorderRadius(context, mobile: 12.0, tablet: 16.0),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        localizations.translate('team_statistics_data'),
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 16.0, tablet: 18.0),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+
+                            SizedBox(height: ResponsiveHelper.responsiveSpacing(context, mobile: 20)),
                           ],
                         ),
-                      ),
-
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                      );
+                    }
+                  },
                 ),
               ),
             ],
@@ -475,70 +573,81 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     Color textColor = Colors.white,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 180,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isTablet = ResponsiveHelper.isTablet(context);
+        final isDesktop = ResponsiveHelper.isDesktop(context);
+        
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: isTablet || isDesktop ? null : 180,
+            padding: EdgeInsets.all(
+              ResponsiveHelper.responsiveValue(context, mobile: 14.0, tablet: 20.0, desktop: 24.0),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(
+                ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            if (subtitle != null)
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: textColor.withOpacity(0.8),
-                  fontSize: 12,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            const SizedBox(height: 6),
-            if (value != null)
-              Text(
-                value,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            const Spacer(),
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 45,
-                child: chart,
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 15.0, tablet: 18.0, desktop: 20.0),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0)),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: textColor.withOpacity(0.8),
+                      fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 12.0, tablet: 14.0, desktop: 16.0),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 6.0, tablet: 8.0)),
+                if (value != null)
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 28.0, tablet: 36.0, desktop: 44.0),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const Spacer(),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: ResponsiveHelper.responsiveValue(context, mobile: 45.0, tablet: 60.0),
+                    child: chart,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -583,93 +692,104 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     required Color color,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 180,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isTablet = ResponsiveHelper.isTablet(context);
+        final isDesktop = ResponsiveHelper.isDesktop(context);
+        
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: isTablet || isDesktop ? null : 180,
+            padding: EdgeInsets.all(
+              ResponsiveHelper.responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
             ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // Text content
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(
+                ResponsiveHelper.responsiveBorderRadius(context, mobile: 16.0, tablet: 20.0, desktop: 24.0),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
-            // Icon in top end (adapts to LTR/RTL)
-            PositionedDirectional(
-              top: 0,
-              end: 0,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    Icons.notifications_active,
-                    size: 32,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                  // Notification badge indicator
-                  if (value != '0' && value != '-')
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
+            child: Stack(
+              children: [
+                // Text content
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 16.0, tablet: 18.0, desktop: 20.0),
+                        fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ],
-              ),
+                    SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0)),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 12.0, tablet: 14.0, desktop: 16.0),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0)),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: ResponsiveHelper.responsiveFontSize(context, mobile: 28.0, tablet: 36.0, desktop: 44.0),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                // Icon in top end (adapts to LTR/RTL)
+                PositionedDirectional(
+                  top: 0,
+                  end: 0,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        Icons.notifications_active,
+                        size: ResponsiveHelper.responsiveIconSize(context, mobile: 32.0, tablet: 40.0, desktop: 48.0),
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                      // Notification badge indicator
+                      if (value != '0' && value != '-')
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0),
+                            height: ResponsiveHelper.responsiveValue(context, mobile: 8.0, tablet: 10.0),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
