@@ -28,6 +28,7 @@ import 'screens/leave_management_screen.dart';
 import 'screens/employee_notifications_screen.dart';
 import 'screens/hr_notifications_screen.dart';
 import 'screens/manager_notifications_screen.dart';
+import 'screens/manager_team_tasks_screen.dart';
 import 'screens/hr_sent_notifications_screen.dart';
 import 'screens/employee_tasks_screen.dart';
 import 'screens/attendance_screen.dart';
@@ -72,98 +73,107 @@ class HRManagementApp extends StatelessWidget {
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, child) {
-          return MaterialApp(
-            title: 'HR Management',
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-              useMaterial3: true,
-              brightness: languageProvider.isDarkMode
-                  ? Brightness.dark
-                  : Brightness.light,
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(1.0), // Fix blurry text globally
             ),
-            locale: languageProvider.locale,
-            supportedLocales: const [
-              Locale('fr', 'FR'), // Primary: French
-              Locale('en', 'US'), // English
-              Locale('ar', 'MA'), // Arabic
-            ],
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            home: const WelcomeScreen(),
-            debugShowCheckedModeBanner: false,
-            routes: {
-              '/login': (context) => const LoginScreen(),
-              '/company-selection': (context) => const CompanySelectionScreen(),
-              '/employee-dashboard': (context) => const EmployeeDashboard(),
-              '/hr-dashboard': (context) => const HRDashboardNew(),
-              '/manager-dashboard': (context) => const ManagerDashboard(),
-              '/leave-calendar': (context) => const LeaveCalendarScreen(),
-              '/leave-request': (context) => const LeaveRequestScreen(),
-              '/leave-balance': (context) => const LeaveBalanceScreen(),
-              '/employee-leave-requests': (context) =>
-                  const EmployeeLeaveRequestsScreen(),
-              '/profile': (context) => const ProfileScreen(),
-              '/personal-info': (context) => const PersonalInfoScreen(),
-              '/personal-documents': (context) =>
-                  const PersonalDocumentsScreen(),
-              '/profile-settings': (context) => const ProfileSettingsScreen(),
-              '/hr-employees': (context) => const HREmployeeManagementScreen(
-                    showAllEmployees: true, // HR sees all employees
-                  ),
-              '/manager-employees': (context) =>
-                  const HREmployeeManagementScreen(
-                    showAllEmployees:
-                        true, // Manager sees all employees under their management
-                  ),
-              '/leave-management': (context) => const LeaveManagementScreen(),
-              '/employee-notifications': (context) =>
-                  const EmployeeNotificationsScreen(),
-              '/manager-notifications': (context) =>
-                  const ManagerNotificationsScreen(),
-              '/employee-tasks': (context) => FutureBuilder<int>(
-                    future: OdooService().getCurrentEmployeeId(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      if (snapshot.hasError || !snapshot.hasData) {
-                        return Scaffold(
-                          body: Center(
-                            child: Text(
-                                'Erreur: Impossible de récupérer l\'employé connecté'),
+            child: MaterialApp(
+              title: 'HR Management',
+              theme: ThemeData(
+                primarySwatch: Colors.blue,
+                useMaterial3: true,
+                brightness: languageProvider.isDarkMode
+                    ? Brightness.dark
+                    : Brightness.light,
+              ),
+              locale: languageProvider.locale,
+              supportedLocales: const [
+                Locale('fr', 'FR'), // Primary: French
+                Locale('en', 'US'), // English
+                Locale('ar', 'MA'), // Arabic
+              ],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const WelcomeScreen(),
+              debugShowCheckedModeBanner: false,
+              routes: {
+                '/login': (context) => const LoginScreen(),
+                '/company-selection': (context) =>
+                    const CompanySelectionScreen(),
+                '/employee-dashboard': (context) => const EmployeeDashboard(),
+                '/hr-dashboard': (context) => const HRDashboardNew(),
+                '/manager-dashboard': (context) => const ManagerDashboard(),
+                '/leave-calendar': (context) => const LeaveCalendarScreen(),
+                '/leave-request': (context) => const LeaveRequestScreen(),
+                '/leave-balance': (context) => const LeaveBalanceScreen(),
+                '/employee-leave-requests': (context) =>
+                    const EmployeeLeaveRequestsScreen(),
+                '/profile': (context) => const ProfileScreen(),
+                '/personal-info': (context) => const PersonalInfoScreen(),
+                '/personal-documents': (context) =>
+                    const PersonalDocumentsScreen(),
+                '/profile-settings': (context) => const ProfileSettingsScreen(),
+                '/hr-employees': (context) => const HREmployeeManagementScreen(
+                      showAllEmployees: true, // HR sees all employees
+                    ),
+                '/manager-employees': (context) =>
+                    const HREmployeeManagementScreen(
+                      showAllEmployees:
+                          true, // Manager sees all employees under their management
+                    ),
+                '/leave-management': (context) => const LeaveManagementScreen(),
+                '/employee-notifications': (context) =>
+                    const EmployeeNotificationsScreen(),
+                '/manager-notifications': (context) =>
+                    const ManagerNotificationsScreen(),
+                '/manager-team-tasks': (context) =>
+                    const ManagerTeamTasksScreen(),
+                '/employee-tasks': (context) => FutureBuilder<int>(
+                      future: OdooService().getCurrentEmployeeId(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Scaffold(
+                            body: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return Scaffold(
+                            body: Center(
+                              child: Text(
+                                  'Erreur: Impossible de récupérer l\'employé connecté'),
+                            ),
+                          );
+                        }
+                        return EmployeeTasksScreen(
+                          employee: Employee(
+                            id: snapshot.data!,
+                            name: 'Current Employee',
+                            email: '',
+                            isActive: true,
                           ),
                         );
-                      }
-                      return EmployeeTasksScreen(
-                        employee: Employee(
-                          id: snapshot.data!,
-                          name: 'Current Employee',
-                          email: '',
-                          isActive: true,
-                        ),
-                      );
-                    },
-                  ),
-              '/hr-notifications': (context) => const HRNotificationsScreen(),
-              '/hr-sent-notifications': (context) =>
-                  const HRSentNotificationsScreen(),
-              '/attendance': (context) => const AttendanceScreen(),
-              '/attendance-history': (context) =>
-                  const AttendanceHistoryScreen(),
-              '/work-time-statistics': (context) =>
-                  const WorkTimeStatisticsScreen(),
-              '/expense-reports': (context) => const ExpenseReportsScreen(),
-              '/credit-request': (context) => const CreditRequestScreen(),
-              '/employee-menu': (context) => const EmployeeMenuOverlay(),
-              '/manager-menu': (context) => const ManagerMenuOverlay(),
-              '/hr-menu': (context) => const HRMenuOverlay(),
-            },
+                      },
+                    ),
+                '/hr-notifications': (context) => const HRNotificationsScreen(),
+                '/hr-sent-notifications': (context) =>
+                    const HRSentNotificationsScreen(),
+                '/attendance': (context) => const AttendanceScreen(),
+                '/attendance-history': (context) =>
+                    const AttendanceHistoryScreen(),
+                '/work-time-statistics': (context) =>
+                    const WorkTimeStatisticsScreen(),
+                '/expense-reports': (context) => const ExpenseReportsScreen(),
+                '/credit-request': (context) => const CreditRequestScreen(),
+                '/employee-menu': (context) => const EmployeeMenuOverlay(),
+                '/manager-menu': (context) => const ManagerMenuOverlay(),
+                '/hr-menu': (context) => const HRMenuOverlay(),
+              },
+            ),
           );
         },
       ),

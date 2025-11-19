@@ -238,26 +238,13 @@ class LastNotificationWidget extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
 
-                      // Middle section - Text content (Spotify-inspired 3-line layout)
+                      // Middle section - Text content
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // First line: Label (smaller, regular weight)
-                            Text(
-                              !isRead
-                                  ? 'Nouvelle notification'
-                                  : 'Notification',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: Colors.grey[600],
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            // Second line: Title (larger, bold - main focus)
+                            // Title (main focus)
                             Text(
                               title,
                               style: TextStyle(
@@ -271,7 +258,7 @@ class LastNotificationWidget extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
-                            // Third line: Description (smaller, regular weight)
+                            // Description
                             Text(
                               preview.isNotEmpty
                                   ? preview

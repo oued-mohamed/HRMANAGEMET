@@ -7,9 +7,8 @@ import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../presentation/providers/dashboard_provider.dart';
-import '../services/user_service.dart';
 import '../data/models/user_model.dart';
-import '../widgets/dashboard_header_title.dart';
+import '../widgets/dashboard_header.dart';
 import 'dart:convert';
 
 class ManagerDashboard extends StatefulWidget {
@@ -26,6 +25,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
   Map<String, dynamic>? _lastNotification;
   bool _isLoadingLastNotification = true;
 
+  static Map<String, dynamic>? _cachedNotification;
+  static DateTime? _cachedNotificationAt;
+  static const Duration _notificationCacheDuration = Duration(minutes: 2);
+
   @override
   void initState() {
     super.initState();
@@ -36,16 +39,31 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     });
   }
 
-  Future<void> _loadNotifications() async {
-    try {
+  Future<void> _loadNotifications({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedNotification != null &&
+        _cachedNotificationAt != null &&
+        DateTime.now().difference(_cachedNotificationAt!) <
+            _notificationCacheDuration) {
+      if (!mounted) return;
+      setState(() {
+        _lastNotification = _cachedNotification;
+        _isLoadingLastNotification = false;
+      });
+      return;
+    }
+
+    final bool showLoader = _lastNotification == null;
+    if (showLoader && mounted) {
       setState(() {
         _isLoadingLastNotification = true;
       });
+    }
 
+    try {
       final notifications = await _odooService.getUnreadNotifications();
       print('Manager - Loaded ${notifications.length} notifications');
 
-      // Sort notifications by date (most recent first)
       List<Map<String, dynamic>> sortedNotifications = List.from(notifications);
       sortedNotifications.sort((a, b) {
         final dateA = a['create_date']?.toString() ?? '';
@@ -59,17 +77,27 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
         }
       });
 
+      final latestNotification =
+          sortedNotifications.isNotEmpty ? sortedNotifications.first : null;
+
+      _cachedNotification = latestNotification != null
+          ? Map<String, dynamic>.from(latestNotification)
+          : null;
+      _cachedNotificationAt = DateTime.now();
+
+      if (!mounted) return;
       setState(() {
-        _lastNotification =
-            sortedNotifications.isNotEmpty ? sortedNotifications.first : null;
+        _lastNotification = latestNotification;
         _isLoadingLastNotification = false;
-        print('Manager - Last notification set: ${_lastNotification != null}');
       });
     } catch (e) {
       print('Error loading notifications for manager dashboard: $e');
+      if (!mounted) return;
       setState(() {
         _isLoadingLastNotification = false;
-        _lastNotification = null;
+        if (forceRefresh) {
+          _lastNotification = null;
+        }
       });
     }
   }
@@ -99,91 +127,28 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
               child: Column(
                 children: [
                   // Modern Header Section
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1.5,
+                  DashboardHeader(
+                    menuRoute: '/manager-menu',
+                    fallbackName: authProvider.user?.name ?? 'Manager',
+                    buildProfileAvatar: (user) => Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFf5576c).withOpacity(0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        // Hamburger Menu with modern design
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            onPressed: () {
-                              Navigator.pushReplacementNamed(
-                                  context, '/manager-menu');
-                            },
-                            icon: const Icon(
-                              Icons.menu,
-                              color: Colors.white,
-                              size: 26,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Title
-                        Expanded(
-                          child: DashboardHeaderTitle(
-                            titleFontSize: 22,
-                            titleColor: Colors.white,
-                            fallbackName: authProvider.user?.name ?? 'Manager',
-                          ),
-                        ),
-                        // Profile Picture with glow effect
-                        StreamBuilder<UserModel?>(
-                          stream: UserService.instance.userStream,
-                          initialData: UserService.instance.currentUser,
-                          builder: (context, snapshot) {
-                            return InkWell(
-                              onTap: () => Navigator.pushNamed(
-                                  context, '/personal-info'),
-                              borderRadius: BorderRadius.circular(25),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFf093fb),
-                                      Color(0xFFf5576c)
-                                    ],
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFf5576c)
-                                          .withOpacity(0.4),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child:
-                                      _buildManagerProfileAvatar(snapshot.data),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                      child: ClipOval(
+                        child: _buildManagerProfileAvatar(user),
+                      ),
                     ),
                   ),
 
@@ -220,7 +185,12 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                             ),
                           )
                         : RefreshIndicator(
-                            onRefresh: () => dashboardProvider.refreshData(),
+                            onRefresh: () async {
+                              await Future.wait([
+                                dashboardProvider.refreshData(),
+                                _loadNotifications(forceRefresh: true),
+                              ]);
+                            },
                             color: const Color(0xFF667eea),
                             child: SingleChildScrollView(
                               physics: const AlwaysScrollableScrollPhysics(),

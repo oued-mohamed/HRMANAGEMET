@@ -4,8 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../presentation/providers/language_provider.dart';
 import '../utils/navigation_helpers.dart';
 import '../utils/app_localizations.dart';
-import '../services/user_service.dart';
-import '../data/models/user_model.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -122,8 +120,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
             _buildLanguageCard(languageProvider, localizations),
 
-            _buildThemeCard(languageProvider, localizations),
-
             const SizedBox(height: 32),
 
             // Save Button
@@ -188,7 +184,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '${localizations.language}: ${languageProvider.getLanguageName()} • ${localizations.theme}: ${languageProvider.isDarkMode ? localizations.dark : localizations.light}',
+                      '${localizations.language}: ${languageProvider.getLanguageName()}',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],
@@ -259,131 +255,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildThemeCard(
-      LanguageProvider languageProvider, AppLocalizations localizations) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.palette_outlined, color: Colors.white),
-              const SizedBox(width: 16),
-              Text(
-                localizations.theme,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildThemeButton(
-                  label: localizations.light,
-                  icon: Icons.light_mode,
-                  isSelected: !languageProvider.isDarkMode,
-                  onTap: () async {
-                    await languageProvider.changeTheme(false);
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(localizations.lightThemeActivated),
-                          backgroundColor: const Color(0xFF35BF8C),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildThemeButton(
-                  label: localizations.dark,
-                  icon: Icons.dark_mode,
-                  isSelected: languageProvider.isDarkMode,
-                  onTap: () async {
-                    await languageProvider.changeTheme(true);
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(localizations.darkThemeActivated),
-                          backgroundColor: const Color(0xFF35BF8C),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThemeButton({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF35BF8C)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF35BF8C)
-                : Colors.white.withOpacity(0.3),
-            width: 2,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../presentation/providers/leave_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
+import '../utils/navigation_helpers.dart';
 
 class LeaveBalanceScreen extends StatefulWidget {
   const LeaveBalanceScreen({super.key});
@@ -63,40 +64,13 @@ class _LeaveBalanceScreenState extends State<LeaveBalanceScreen> {
       onPopInvoked: (bool didPop) async {
         if (didPop) return;
         // Handle Android back button - same functionality as AppBar back button
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/employee-menu',
-          (route) {
-            final routeName = route.settings.name;
-            return routeName == '/employee-menu' ||
-                routeName == '/employee-dashboard' ||
-                routeName == '/login' ||
-                routeName == '/company-selection';
-          },
-        );
+        await NavigationHelpers.backToPrevious(context);
       },
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              // Always navigate back to employee menu safely
-              // This prevents accidentally going to login/welcome screen
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/employee-menu',
-                (route) {
-                  final routeName = route.settings.name;
-                  // Keep only safe authenticated routes
-                  // This ensures we don't remove login/company-selection
-                  // but also don't end up at welcome screen
-                  return routeName == '/employee-menu' ||
-                      routeName == '/employee-dashboard' ||
-                      routeName == '/login' ||
-                      routeName == '/company-selection';
-                },
-              );
-            },
+            onPressed: () => NavigationHelpers.backToPrevious(context),
           ),
           title: const Text('Solde de mes congés'),
           backgroundColor: const Color(0xFF000B58),

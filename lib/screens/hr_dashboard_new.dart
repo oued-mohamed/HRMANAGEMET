@@ -9,7 +9,7 @@ import '../services/user_service.dart';
 import '../services/odoo_service.dart';
 import '../services/notification_service.dart';
 import '../data/models/user_model.dart';
-import '../widgets/dashboard_header_title.dart';
+import '../widgets/dashboard_header.dart';
 
 class HRDashboardNew extends StatefulWidget {
   const HRDashboardNew({super.key});
@@ -157,78 +157,26 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
           child: Column(
             children: [
               // Header Section
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                padding: const EdgeInsets.fromLTRB(8, 16, 20, 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 1,
+              DashboardHeader(
+                menuRoute: '/hr-menu',
+                buildProfileAvatar: (user) => Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFf5576c).withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ),
-                child: Row(
-                  children: [
-                    // Hamburger Menu - navigate to HR menu overlay
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/hr-menu');
-                      },
-                      icon: const Icon(
-                        Icons.menu,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                    // Title
-                    Expanded(
-                      child: DashboardHeaderTitle(
-                        titleFontSize: 18,
-                        titleColor: Colors.black87,
-                      ),
-                    ),
-                    // Profile Picture (navigates to personal info)
-                    InkWell(
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/personal-info'),
-                      borderRadius: BorderRadius.circular(20),
-                      child: StreamBuilder<UserModel?>(
-                        stream: UserService.instance.userStream,
-                        initialData: UserService.instance.currentUser,
-                        builder: (context, snapshot) {
-                          return _buildProfileAvatar(snapshot.data);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Search Bar
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText:
-                        localizations.translate('search_employees_reports'),
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                    suffixIcon: const Icon(Icons.search, color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  child: ClipOval(
+                    child: _buildHRProfileAvatar(user),
                   ),
                 ),
               ),
@@ -592,53 +540,38 @@ class _HRDashboardNewState extends State<HRDashboardNew> {
     );
   }
 
-  Widget _buildProfileAvatar(UserModel? user) {
-    print(
-        'HR Dashboard Avatar - User: ${user?.name}, Has image: ${user?.profileImage != null}');
-
+  Widget _buildHRProfileAvatar(UserModel? user) {
     if (user?.profileImage != null && user!.profileImage!.isNotEmpty) {
       try {
         final imageBytes = base64Decode(user.profileImage!);
-        print(
-            'HR Dashboard Avatar - Image decoded successfully, size: ${imageBytes.length} bytes');
-        return Container(
-          width: 40,
-          height: 40,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-          ),
-          child: ClipOval(
-            child: Image.memory(
-              imageBytes,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-            ),
-          ),
+        return Image.memory(
+          imageBytes,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildHRDefaultAvatar();
+          },
         );
       } catch (e) {
-        print('HR Dashboard Avatar - Error decoding image: $e');
-        // Erreur de décodage, utiliser l'icône par défaut
+        print('HR Avatar - Error decoding image: $e');
       }
-    } else {
-      print('HR Dashboard Avatar - No image data available');
     }
 
+    return _buildHRDefaultAvatar();
+  }
+
+  Widget _buildHRDefaultAvatar() {
     return Container(
-      width: 40,
-      height: 40,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF000B58), Color(0xFF35BF8C)],
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
         ),
+        shape: BoxShape.circle,
       ),
-      child: const Icon(
-        Icons.person,
-        color: Colors.white,
-        size: 24,
-      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 28),
     );
   }
 }

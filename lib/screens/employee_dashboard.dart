@@ -10,7 +10,7 @@ import '../services/user_service.dart';
 import '../services/odoo_service.dart';
 import '../services/notification_service.dart';
 import '../data/models/user_model.dart';
-import '../widgets/dashboard_header_title.dart';
+import '../widgets/dashboard_header.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -254,52 +254,27 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           child: Column(
             children: [
               // Header Section
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                padding: const EdgeInsets.fromLTRB(8, 16, 20, 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 1,
+              DashboardHeader(
+                menuRoute: '/employee-menu',
+                buildProfileAvatar: (user) => Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFf5576c).withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ),
-                child: Row(
-                  children: [
-                    // Hamburger Menu -> open overlay Employee Menu
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(
-                            context, '/employee-menu');
-                      },
-                      icon: const Icon(
-                        Icons.menu,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
-                    ),
-                    // Title
-                    Expanded(
-                      child: DashboardHeaderTitle(
-                        titleFontSize: 18,
-                        titleColor: Colors.black87,
-                      ),
-                    ),
-                    // Profile Picture (navigates to personal info)
-                    InkWell(
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/personal-info'),
-                      borderRadius: BorderRadius.circular(20),
-                      child: StreamBuilder<UserModel?>(
-                        stream: UserService.instance.userStream,
-                        initialData: UserService.instance.currentUser,
-                        builder: (context, snapshot) {
-                          return _buildProfileAvatar(snapshot.data);
-                        },
-                      ),
-                    ),
-                  ],
+                  child: ClipOval(
+                    child: _buildEmployeeProfileAvatar(user),
+                  ),
                 ),
               ),
 
@@ -698,53 +673,38 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildProfileAvatar(UserModel? user) {
-    print(
-        'Employee Dashboard Avatar - User: ${user?.name}, Has image: ${user?.profileImage != null}');
-
+  Widget _buildEmployeeProfileAvatar(UserModel? user) {
     if (user?.profileImage != null && user!.profileImage!.isNotEmpty) {
       try {
         final imageBytes = base64Decode(user.profileImage!);
-        print(
-            'Employee Dashboard Avatar - Image decoded successfully, size: ${imageBytes.length} bytes');
-        return Container(
-          width: 40,
-          height: 40,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-          ),
-          child: ClipOval(
-            child: Image.memory(
-              imageBytes,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-            ),
-          ),
+        return Image.memory(
+          imageBytes,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildEmployeeDefaultAvatar();
+          },
         );
       } catch (e) {
-        print('Employee Dashboard Avatar - Error decoding image: $e');
-        // Erreur de décodage, utiliser l'icône par défaut
+        print('Employee Avatar - Error decoding image: $e');
       }
-    } else {
-      print('Employee Dashboard Avatar - No image data available');
     }
 
+    return _buildEmployeeDefaultAvatar();
+  }
+
+  Widget _buildEmployeeDefaultAvatar() {
     return Container(
-      width: 40,
-      height: 40,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF000B58), Color(0xFF35BF8C)],
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
         ),
+        shape: BoxShape.circle,
       ),
-      child: const Icon(
-        Icons.person,
-        color: Colors.white,
-        size: 24,
-      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 28),
     );
   }
 }

@@ -4,6 +4,9 @@ import '../utils/app_localizations.dart';
 import '../services/user_service.dart';
 import '../data/models/user_model.dart';
 import 'logout_button.dart';
+import 'working_time_menu_item.dart';
+import 'profile_menu_item.dart';
+import 'leaves_menu_item.dart';
 
 class HRDrawer extends StatefulWidget {
   const HRDrawer({super.key});
@@ -108,170 +111,24 @@ class _HRDrawerState extends State<HRDrawer> {
                         const Divider(color: Colors.white30, thickness: 1),
 
                         // 1. Mon profil
-                        _buildExpandableMenuItem(
-                          context: context,
-                          localizations: localizations,
-                          icon: Icons.person_outline,
-                          title: localizations.translate('my_profile'),
-                          children: [
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations
-                                  .translate('personal_employment_info'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/personal-info');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/personal-info');
-                                }
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title:
-                                  localizations.translate('personal_documents'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/personal-documents');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/personal-documents');
-                                }
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title:
-                                  localizations.translate('profile_settings'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/profile-settings');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/profile-settings');
-                                }
-                              },
-                            ),
-                          ],
+                        ProfileMenuItem(
+                          menuRoute: '/hr-menu',
+                          buildExpandableMenuItem: _buildExpandableMenuItem,
+                          buildSubMenuItem: _buildSubMenuItem,
                         ),
 
                         // 2. Congés
-                        _buildExpandableMenuItem(
-                          context: context,
-                          localizations: localizations,
-                          icon: Icons.event_available,
-                          title: localizations.translate('leaves'),
-                          children: [
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations.translate('request_leave'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/leave-request');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/leave-request');
-                                }
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations.translate('leave_balance'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/leave-balance');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/leave-balance');
-                                }
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations.translate('calendar'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/leave-calendar');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/leave-calendar');
-                                }
-                              },
-                            ),
-                          ],
+                        LeavesMenuItem(
+                          menuRoute: '/hr-menu',
+                          buildExpandableMenuItem: _buildExpandableMenuItem,
+                          buildSubMenuItem: _buildSubMenuItem,
                         ),
 
                         // 3. Temps de travail
-                        _buildExpandableMenuItem(
-                          context: context,
-                          localizations: localizations,
-                          icon: Icons.access_time,
-                          title: localizations.translate('work_time'),
-                          children: [
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations.translate('punch_in_out'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(context, '/attendance');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(context, '/attendance');
-                                }
-                              },
-                            ),
-                            _buildSubMenuItem(
-                              context: context,
-                              localizations: localizations,
-                              title: localizations.translate('punch_history'),
-                              onTap: () {
-                                final currentRoute =
-                                    ModalRoute.of(context)?.settings.name;
-                                if (currentRoute == '/hr-menu') {
-                                  Navigator.pushNamed(
-                                      context, '/attendance-history');
-                                } else {
-                                  Navigator.pop(context);
-                                  Navigator.pushNamed(
-                                      context, '/attendance-history');
-                                }
-                              },
-                            ),
-                          ],
+                        WorkingTimeMenuItem(
+                          menuRoute: '/hr-menu',
+                          buildExpandableMenuItem: _buildExpandableMenuItem,
+                          buildSubMenuItem: _buildSubMenuItem,
                         ),
 
                         // 4. Gestion des employés (HR specific)

@@ -3,6 +3,7 @@ import '../services/notification_service.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/employee_drawer.dart';
+import '../utils/navigation_helpers.dart';
 
 class EmployeeNotificationsScreen extends StatefulWidget {
   const EmployeeNotificationsScreen({super.key});
@@ -161,17 +162,7 @@ class _EmployeeNotificationsScreenState
       onPopInvoked: (bool didPop) async {
         if (didPop) return;
         // Handle Android back button - same functionality as AppBar back button
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/employee-menu',
-          (route) {
-            final routeName = route.settings.name;
-            return routeName == '/employee-menu' ||
-                routeName == '/employee-dashboard' ||
-                routeName == '/login' ||
-                routeName == '/company-selection';
-          },
-        );
+        await NavigationHelpers.backToPrevious(context);
       },
       child: Scaffold(
         key: _scaffoldKey,
@@ -210,24 +201,7 @@ class _EmployeeNotificationsScreenState
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: IconButton(
-                          onPressed: () {
-                            // Always navigate back to employee menu safely
-                            // This prevents accidentally going to login/welcome screen
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              '/employee-menu',
-                              (route) {
-                                final routeName = route.settings.name;
-                                // Keep only safe authenticated routes
-                                // This ensures we don't remove login/company-selection
-                                // but also don't end up at welcome screen
-                                return routeName == '/employee-menu' ||
-                                    routeName == '/employee-dashboard' ||
-                                    routeName == '/login' ||
-                                    routeName == '/company-selection';
-                              },
-                            );
-                          },
+                          onPressed: () => NavigationHelpers.backToPrevious(context),
                           icon: const Icon(Icons.arrow_back,
                               color: Colors.white, size: 26),
                         ),

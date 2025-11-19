@@ -16,54 +16,31 @@ class DashboardProvider extends ChangeNotifier {
       DateTime.now().difference(_lastFetchTime!) < _cacheExpiration;
 
   Future<void> loadTeamData({bool forceRefresh = false}) async {
-    // If we have valid cached data and not forcing refresh, don't fetch again
-    if (hasData && isCacheValid && !forceRefresh) {
+    if (!forceRefresh && hasData && isCacheValid) {
       print('Using cached team data');
       return;
     }
 
-    try {
+    final bool showLoader = !hasData || forceRefresh;
+    if (showLoader) {
       _isLoading = true;
       notifyListeners();
+    } else {
+      print('Refreshing team data in background without loader');
+    }
 
-      print('Fetching fresh team data...');
-
-      // Debug employee hierarchy first
-      await OdooService().debugEmployeeHierarchy();
-
-      // Debug Othman configuration specifically
-      await OdooService().debugOthmanConfiguration();
-
-      final stats = await OdooService().getTeamStatistics();
-      print('Team stats loaded: ${stats.keys}');
-      print('Pending requests type: ${stats['pending_requests'].runtimeType}');
-      print('Team members type: ${stats['team_members'].runtimeType}');
-
-      // Additional debugging
-      if (stats['team_members'] is List) {
-        print('Team members count: ${(stats['team_members'] as List).length}');
-        for (int i = 0; i < (stats['team_members'] as List).length; i++) {
-          final member = (stats['team_members'] as List)[i];
-          print('Team member $i: ${member.runtimeType} - $member');
-        }
-      }
-
-      if (stats['pending_requests'] is List) {
-        print(
-            'Pending requests count: ${(stats['pending_requests'] as List).length}');
-        for (int i = 0; i < (stats['pending_requests'] as List).length; i++) {
-          final request = (stats['pending_requests'] as List)[i];
-          print('Pending request $i: ${request.runtimeType} - $request');
-        }
-      }
-
+    try {
+      final stats = await OdooService().getTeamStatistics(
+        forceRefresh: forceRefresh || !isCacheValid || !hasData,
+      );
       _teamStats = stats;
       _lastFetchTime = DateTime.now();
-      _isLoading = false;
-      notifyListeners();
     } catch (e) {
       print('Error loading team data: $e');
-      _isLoading = false;
+    } finally {
+      if (showLoader) {
+        _isLoading = false;
+      }
       notifyListeners();
     }
   }

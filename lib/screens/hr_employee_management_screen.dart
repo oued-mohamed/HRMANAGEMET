@@ -29,6 +29,7 @@ class _HREmployeeManagementScreenState
   Map<int, double> _weeklyHours = {}; // Store weekly hours for each employee
   bool _isLoading = true;
   String _searchQuery = '';
+  DateTime? _cachedWeekStart;
 
   @override
   void initState() {
@@ -39,23 +40,27 @@ class _HREmployeeManagementScreenState
   // Get current week (Monday to Saturday)
   DateTime get _weekStart {
     final now = DateTime.now();
-    final weekday = now.weekday; // 1 = Monday, 7 = Sunday
-    // Go back to Monday
-    return now.subtract(Duration(days: weekday - 1));
+    final today = DateTime(now.year, now.month, now.day);
+    final weekday = today.weekday; // 1 = Monday, 7 = Sunday
+    return today.subtract(Duration(days: weekday - 1));
   }
 
   DateTime get _weekEnd {
-    final now = DateTime.now();
-    final weekday = now.weekday;
-    // Go forward to Saturday (add 5 days from Monday)
-    return now.add(Duration(days: 7 - weekday));
+    final start = _weekStart;
+    return start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
   }
 
   // Get weekly hours for a specific employee
   Future<double> _getWeeklyHours(int employeeId, {bool useCache = true}) async {
     try {
-      final attendanceRecords = await _odooService
-          .getEmployeeAttendance(employeeId, useCache: useCache);
+      final weekStart = _weekStart;
+      final weekEnd = _weekEnd;
+      final attendanceRecords = await _odooService.getEmployeeAttendance(
+        employeeId,
+        useCache: useCache,
+        dateFrom: weekStart,
+        dateTo: weekEnd,
+      );
 
       double totalHours = 0.0;
 
@@ -88,9 +93,52 @@ class _HREmployeeManagementScreenState
     }
   }
 
+  void _resetWeeklyHoursIfNeeded() {
+    final currentWeekStart = _weekStart;
+    if (_cachedWeekStart == null ||
+        !_isSameDay(_cachedWeekStart!, currentWeekStart)) {
+      _weeklyHours.clear();
+      _cachedWeekStart = currentWeekStart;
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Future<void> _prefetchWeeklyHours(List<int> employeeIds,
+      {bool forceRefresh = false}) async {
+    final idsToFetch = forceRefresh
+        ? employeeIds
+        : employeeIds.where((id) => !_weeklyHours.containsKey(id)).toList();
+
+    if (idsToFetch.isEmpty) return;
+
+    final results = await Future.wait(
+      idsToFetch.map((id) async {
+        final hours =
+            await _getWeeklyHours(id, useCache: !forceRefresh);
+        return MapEntry(id, hours);
+      }),
+    );
+
+    if (!mounted || results.isEmpty) return;
+
+    setState(() {
+      for (final entry in results) {
+        _weeklyHours[entry.key] = entry.value;
+      }
+    });
+  }
+
   Future<void> _loadEmployees({bool forceRefresh = false}) async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+    if (forceRefresh) {
+      _weeklyHours.clear();
+    } else {
+      _resetWeeklyHoursIfNeeded();
+    }
     try {
       // First, get direct reports to track which employees can receive tasks
       final directReports =
@@ -114,22 +162,18 @@ class _HREmployeeManagementScreenState
         employeesList = directReports;
       }
 
-      // Load weekly hours for each employee in parallel for speed
-      final ids = employeesList.map((e) => e['id'] as int).toList();
-      final hoursList = await Future.wait(
-        ids.map((id) => _getWeeklyHours(id, useCache: !forceRefresh)),
-      );
-      final Map<int, double> weeklyHours = {
-        for (var i = 0; i < ids.length; i++) ids[i]: hoursList[i],
-      };
-
       if (mounted) {
         setState(() {
           _employees = employeesList;
-          _weeklyHours = weeklyHours;
           _isLoading = false;
+          final employeeIds =
+              employeesList.map((e) => e['id'] as int).toSet();
+          _weeklyHours.removeWhere((key, value) => !employeeIds.contains(key));
         });
       }
+
+      final ids = employeesList.map((e) => e['id'] as int).toList();
+      await _prefetchWeeklyHours(ids, forceRefresh: forceRefresh);
     } catch (e) {
       print('Error loading employees: $e');
       if (mounted) {
@@ -321,8 +365,8 @@ class _HREmployeeManagementScreenState
                               )
                             : SingleChildScrollView(
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20,
-                                    100), // Extra bottom padding for FAB
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 20),
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
                                     final availableWidth = constraints.maxWidth;
@@ -349,20 +393,6 @@ class _HREmployeeManagementScreenState
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // Add new employee
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(localizations.translate('add_employee_via_odoo')),
-              backgroundColor: const Color(0xFF35BF8C),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: Text(localizations.translate('add_employee')),
-        backgroundColor: const Color(0xFF35BF8C),
       ),
     );
   }
@@ -533,16 +563,11 @@ class _HREmployeeManagementScreenState
                               ),
                             ),
                             Flexible(
-                              child: Text(
-                                _formatHours(
-                                    _weeklyHours[employee['id'] as int] ?? 0.0),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF000B58),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: _buildWeeklyHoursWidget(
+                                  employee['id'] as int,
                                 ),
-                                textAlign: TextAlign.end,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -553,6 +578,31 @@ class _HREmployeeManagementScreenState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildWeeklyHoursWidget(int employeeId) {
+    final hours = _weeklyHours[employeeId];
+    if (hours == null) {
+      return const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF000B58)),
+        ),
+      );
+    }
+
+    return Text(
+      _formatHours(hours),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF000B58),
+      ),
+      textAlign: TextAlign.end,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

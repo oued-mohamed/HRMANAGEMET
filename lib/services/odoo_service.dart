@@ -46,6 +46,9 @@ class OdooService {
   List<Map<String, dynamic>>? _cachedPunchingEntities;
   DateTime? _cachedPunchingEntitiesAt;
 
+  Map<String, dynamic>? _cachedTeamStats;
+  DateTime? _cachedTeamStatsAt;
+
   // Default cache lifetime
   static const Duration _defaultCacheTtl = Duration(minutes: 5);
 
@@ -64,6 +67,8 @@ class OdooService {
     _cachedLeaveTypesAt = null;
     _cachedPunchingEntities = null;
     _cachedPunchingEntitiesAt = null;
+    _cachedTeamStats = null;
+    _cachedTeamStatsAt = null;
   }
 
   // Login method
@@ -164,10 +169,22 @@ class OdooService {
             'work_phone',
             'mobile_phone',
             'birthday',
+            'gender', // Genre (male/female/other)
+            'address_id', // Adresse professionnelle (relation vers res.partner)
+            'barcode', // Numéro d'immatriculation
+            'bank_account_id', // Compte bancaire (relation)
+            'marital', // État civil (single/married/divorced/widower)
+            'children', // Nombre d'enfants à charge
+            'ssnid', // Numéro de sécurité sociale
+            'identification_id', // N° d'identification
+            'l10n_ma_cin_number', // CIN Number (Maroc)
+            'l10n_ma_cnss_number', // CNSS Number (Maroc)
+            'l10n_ma_cimr_number', // CIMR Number (Maroc)
+            'emergency_contact', // Personne à prévenir
+            'emergency_phone', // N° tél de la personne à prévenir
             'job_id',
             'department_id',
             'parent_id',
-            'barcode',
             'company_id',
             'image_1920',
           ],
@@ -187,6 +204,126 @@ class OdooService {
           data['user_email'] = userInfo['email'];
         } catch (e) {
           print('Could not fetch user info: $e');
+        }
+
+        // Get address details from address_id (res.partner)
+        if (data['address_id'] != null && data['address_id'] != false) {
+          try {
+            final addressId = data['address_id'] is List
+                ? data['address_id'][0]
+                : data['address_id'];
+
+            if (addressId is int) {
+              final addressData = await _callRPC('object', 'execute_kw', [
+                database,
+                _userId,
+                _password,
+                'res.partner',
+                'read',
+                [addressId],
+                {
+                  'fields': [
+                    'street',
+                    'street2',
+                    'city',
+                    'zip',
+                    'country_id',
+                  ],
+                }
+              ]);
+
+              if (addressData is List && addressData.isNotEmpty) {
+                final address = addressData.first as Map<String, dynamic>;
+                data['street'] = address['street'];
+                data['street2'] = address['street2'];
+                data['city'] = address['city'];
+                data['zip'] = address['zip'];
+                data['country_id'] = address['country_id'];
+              }
+            }
+          } catch (e) {
+            print('Could not fetch address details: $e');
+          }
+        }
+
+        // Get hire date and contract end date from contract
+        try {
+          final contracts = await _callRPC('object', 'execute_kw', [
+            database,
+            _userId,
+            _password,
+            'hr.contract',
+            'search_read',
+            [
+              [
+                ['employee_id', '=', employeeId],
+                ['state', '!=', 'cancel']
+              ]
+            ],
+            {
+              'fields': ['date_start', 'date_end'],
+              'order': 'date_start asc',
+              'limit': 1,
+            }
+          ]);
+
+          if (contracts is List && contracts.isNotEmpty) {
+            final contract = contracts.first as Map<String, dynamic>;
+            if (contract['date_start'] != null &&
+                contract['date_start'] != false) {
+              data['first_contract_date'] = contract['date_start'];
+              print(
+                  '✅ Fetched hire date from contract: ${contract['date_start']}');
+            }
+            if (contract['date_end'] != null && contract['date_end'] != false) {
+              data['contract_end_date'] = contract['date_end'];
+              print('✅ Fetched contract end date: ${contract['date_end']}');
+            }
+          }
+        } catch (e) {
+          print('Could not fetch contract details: $e');
+        }
+
+        // Get bank account details
+        if (data['bank_account_id'] != null &&
+            data['bank_account_id'] != false) {
+          try {
+            final bankAccountId = data['bank_account_id'] is List
+                ? data['bank_account_id'][0]
+                : data['bank_account_id'];
+
+            if (bankAccountId is int) {
+              final bankAccountData = await _callRPC('object', 'execute_kw', [
+                database,
+                _userId,
+                _password,
+                'res.partner.bank',
+                'read',
+                [bankAccountId],
+                {
+                  'fields': [
+                    'bank_id', // Banque
+                    'bank_bic', // BIC/SWIFT (peut être utilisé pour agence)
+                    'acc_number', // Numéro de compte (RIB)
+                    'bank_name', // Nom de la banque (alternative)
+                  ],
+                }
+              ]);
+
+              if (bankAccountData is List && bankAccountData.isNotEmpty) {
+                final bankAccount =
+                    bankAccountData.first as Map<String, dynamic>;
+                data['bank_name'] = bankAccount['bank_id'] is List
+                    ? bankAccount['bank_id'][1].toString()
+                    : (bankAccount['bank_name']?.toString() ?? 'N/A');
+                data['bank_bic'] = bankAccount['bank_bic']?.toString();
+                data['bank_rib'] = bankAccount['acc_number']?.toString();
+                print('✅ Fetched bank account details');
+              }
+            }
+          } catch (e) {
+            print('Could not fetch bank account details: $e');
+          }
         }
 
         return data;
@@ -1624,6 +1761,141 @@ class OdooService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getTasksForUsers({
+    required List<int> userIds,
+    bool includeInactive = false,
+  }) async {
+    if (_userId == null || _password == null) {
+      throw Exception('Not authenticated');
+    }
+
+    if (userIds.isEmpty) return [];
+
+    final uniqueUserIds = userIds.toSet().toList();
+
+    final List<dynamic> domain = [
+      '|',
+      [
+        'user_ids',
+        'in',
+        uniqueUserIds,
+      ],
+      [
+        'user_id',
+        'in',
+        uniqueUserIds,
+      ],
+    ];
+
+    if (!includeInactive) {
+      domain.add(['active', '=', true]);
+    }
+
+    final tasks = await _callRPC('object', 'execute_kw', [
+      database,
+      _userId,
+      _password,
+      'project.task',
+      'search_read',
+      [domain],
+      {
+        'fields': [
+          'id',
+          'name',
+          'description',
+          'priority',
+          'date_deadline',
+          'create_date',
+          'write_date',
+          'stage_id',
+          'user_ids',
+          'user_id',
+          'project_id',
+          'partner_id',
+          'personal_stage_id',
+          'personal_stage_type_id',
+          'activity_user_id',
+          'create_uid',
+          'active'
+        ],
+        'order': 'date_deadline asc, priority desc, create_date desc',
+        'limit': 200,
+        'context': {
+          'lang': 'fr_FR',
+        }
+      }
+    ]);
+
+    if (tasks is List) {
+      final List<Map<String, dynamic>> validTasks = [];
+      for (var item in tasks) {
+        if (item is Map<String, dynamic>) {
+          final assignedUserIds =
+              _extractUserIdsFromMany2Many(item['user_ids']);
+
+          final primaryUser = _parseIdFromMany2one(item['user_id']);
+          if (primaryUser != null && !assignedUserIds.contains(primaryUser)) {
+            assignedUserIds.add(primaryUser);
+          }
+
+          if (assignedUserIds
+              .any((assignedId) => uniqueUserIds.contains(assignedId))) {
+            final copy = Map<String, dynamic>.from(item);
+            copy['assigned_user_ids'] = assignedUserIds;
+            validTasks.add(copy);
+          }
+        }
+      }
+      return validTasks;
+    }
+
+    return [];
+  }
+
+  List<int> _extractUserIdsFromMany2Many(dynamic raw) {
+    final List<int> ids = [];
+    if (raw == null || raw == false) return ids;
+
+    if (raw is List) {
+      for (var entry in raw) {
+        if (entry is int) {
+          ids.add(entry);
+        } else if (entry is String) {
+          final parsed = int.tryParse(entry);
+          if (parsed != null) ids.add(parsed);
+        } else if (entry is List && entry.isNotEmpty) {
+          final value = entry[0];
+          if (value is int) {
+            ids.add(value);
+          } else {
+            final parsed = int.tryParse(value.toString());
+            if (parsed != null) ids.add(parsed);
+          }
+        }
+      }
+    }
+
+    return ids;
+  }
+
+  int? _parseIdFromMany2one(dynamic value) {
+    if (value == null || value == false) return null;
+
+    if (value is int) return value;
+
+    if (value is List && value.isNotEmpty) {
+      final idValue = value[0];
+      if (idValue is int) return idValue;
+      return int.tryParse(idValue.toString());
+    }
+
+    if (value is String) {
+      return int.tryParse(value);
+    }
+
+    return int.tryParse(value.toString());
+  }
+
   // Update task stage/status
   Future<bool> updateTaskStage({
     required int taskId,
@@ -2409,6 +2681,88 @@ class OdooService {
   }
 
   // Get leave requests with all details
+  // Get leave allocations (droit acquis) from hr.leave.allocation
+  Future<List<Map<String, dynamic>>> getLeaveAllocations() async {
+    print('📊 === FETCHING LEAVE ALLOCATIONS ===');
+    final employeeId = await getCurrentEmployeeId();
+    print('📊 Employee ID: $employeeId');
+
+    try {
+      // Try with 'validate' state first
+      var allocations = await _callRPC('object', 'execute_kw', [
+        database,
+        _userId,
+        _password,
+        'hr.leave.allocation',
+        'search_read',
+        [
+          [
+            ['employee_id', '=', employeeId],
+            ['state', '=', 'validate']
+          ]
+        ],
+        {
+          'fields': [
+            'holiday_status_id',
+            'number_of_days', // Total allocated days (droit acquis)
+            'number_of_days_display', // Alternative field
+            'remaining_days', // Remaining balance
+            'leaves_taken', // Days taken from this allocation
+            'state', // Include state for debugging
+          ],
+          'limit': 1000,
+          'context': {'lang': 'fr_FR'}
+        }
+      ]);
+
+      if (allocations is List && allocations.isEmpty) {
+        print('📊 No allocations with state=validate, trying all states...');
+        // If no validated allocations, try all states
+        allocations = await _callRPC('object', 'execute_kw', [
+          database,
+          _userId,
+          _password,
+          'hr.leave.allocation',
+          'search_read',
+          [
+            [
+              ['employee_id', '=', employeeId]
+            ]
+          ],
+          {
+            'fields': [
+              'holiday_status_id',
+              'number_of_days',
+              'number_of_days_display',
+              'remaining_days',
+              'leaves_taken',
+              'state',
+            ],
+            'limit': 1000,
+            'context': {'lang': 'fr_FR'}
+          }
+        ]);
+      }
+
+      if (allocations is List) {
+        print('📊 Found ${allocations.length} allocations');
+        for (var i = 0; i < allocations.length; i++) {
+          final alloc = allocations[i];
+          if (alloc is Map) {
+            print(
+                '📊 Allocation $i: state=${alloc['state']}, number_of_days=${alloc['number_of_days']}, remaining_days=${alloc['remaining_days']}');
+          }
+        }
+        return allocations.map((a) => Map<String, dynamic>.from(a)).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('📊 ❌ Error fetching leave allocations: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getLeaveRequests() async {
     print('📋 === FETCHING LEAVE REQUESTS ===');
     final employeeId = await getCurrentEmployeeId();
@@ -2419,24 +2773,7 @@ class OdooService {
       print('📋 Making RPC call to hr.leave.search_read...');
       print('📋 Filter: employee_id = $employeeId');
 
-      // First, try to search without any filters to see if model exists
-      print('📋 Testing if hr.leave model exists...');
-      try {
-        final testSearch = await _callRPC('object', 'execute_kw', [
-          database,
-          _userId,
-          _password,
-          'hr.leave',
-          'search',
-          [[]], // Empty domain to search all
-          {'limit': 1}
-        ]);
-        print(
-            '📋 Test search result: $testSearch (count: ${testSearch is List ? testSearch.length : 'not a list'})');
-      } catch (e) {
-        print('📋 ⚠️ Test search failed: $e');
-      }
-
+      // OPTIMIZED: Removed unnecessary test search - directly fetch leave requests
       final requests = await _callRPC('object', 'execute_kw', [
         database,
         _userId,
@@ -2463,7 +2800,8 @@ class OdooService {
             'request_unit_half'
           ],
           'order': 'request_date_from desc',
-          'limit': 1000,
+          'limit':
+              100, // OPTIMIZED: Reduced from 1000 to 100 for faster loading
           'context': {'lang': 'fr_FR'}
         }
       ]);
@@ -2503,7 +2841,8 @@ class OdooService {
                 'request_unit_half'
               ],
               'order': 'request_date_from desc',
-              'limit': 1000,
+              'limit':
+                  100, // OPTIMIZED: Reduced from 1000 to 100 for faster loading
               'context': {'lang': 'fr_FR'}
             }
           ]);
@@ -2511,13 +2850,11 @@ class OdooService {
               '📋 Alternative format result: ${altRequests is List ? altRequests.length : 'not a list'} items');
           if (altRequests is List && altRequests.isNotEmpty) {
             print('📋 Using alternative format results');
-            final List<Map<String, dynamic>> validRequests = [];
-            for (var i = 0; i < altRequests.length; i++) {
-              var item = altRequests[i];
-              if (item is Map) {
-                validRequests.add(Map<String, dynamic>.from(item));
-              }
-            }
+            // OPTIMIZED: Use whereType for more efficient filtering
+            final validRequests = altRequests
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
             return validRequests;
           }
         } catch (e) {
@@ -2525,22 +2862,20 @@ class OdooService {
         }
       }
 
-      print('📋 Raw response type: ${requests.runtimeType}');
-      print('📋 Raw response: $requests');
-
       if (requests is List) {
         print('📋 Response is a List with ${requests.length} items');
-        final List<Map<String, dynamic>> validRequests = [];
-        for (var i = 0; i < requests.length; i++) {
-          var item = requests[i];
-          print('📋 Item $i type: ${item.runtimeType}');
-          if (item is Map) {
-            print('📋 Item $i is a Map: ${item.keys.toList()}');
-            validRequests.add(Map<String, dynamic>.from(item));
-          } else {
-            print('📋 ⚠️ Item $i is not a Map, skipping: $item');
-          }
+
+        // OPTIMIZED: Use whereType for more efficient filtering of invalid items
+        final validRequests = requests
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+
+        final skippedCount = requests.length - validRequests.length;
+        if (skippedCount > 0) {
+          print('📋 ⚠️ Skipped $skippedCount invalid items (not Maps)');
         }
+
         print('📋 Returning ${validRequests.length} valid requests');
         return validRequests;
       } else {
@@ -3254,6 +3589,7 @@ class OdooService {
             'department_id',
             'parent_id',
             'image_1920',
+            'user_id',
           ],
           'order': 'name asc',
         }
@@ -3959,12 +4295,21 @@ class OdooService {
   }
 
   // Get team statistics
-  Future<Map<String, dynamic>> getTeamStatistics() async {
+  Future<Map<String, dynamic>> getTeamStatistics(
+      {bool forceRefresh = false}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
+      if (!forceRefresh &&
+          _cachedTeamStats != null &&
+          _cachedTeamStatsAt != null &&
+          DateTime.now().difference(_cachedTeamStatsAt!) < _defaultCacheTtl) {
+        print('📦 Returning cached team statistics');
+        return Map<String, dynamic>.from(_cachedTeamStats!);
+      }
+
       final employeeId = await getCurrentEmployeeId();
       print('📊 Getting team statistics for employee: $employeeId');
 
@@ -4208,7 +4553,10 @@ class OdooService {
         }
       }
 
-      return result;
+      _cachedTeamStats = Map<String, dynamic>.from(result);
+      _cachedTeamStatsAt = DateTime.now();
+
+      return Map<String, dynamic>.from(result);
     } catch (e) {
       print('Error fetching team statistics: $e');
       print('Error details: ${e.toString()}');
@@ -4223,7 +4571,7 @@ class OdooService {
           teamSize = teamMembers.length;
         }
 
-        return {
+        final fallbackResult = {
           'team_size': teamSize,
           'pending_approvals': 0,
           'approved_this_week': 0,
@@ -4231,9 +4579,12 @@ class OdooService {
           'team_members': teamMembers,
           'pending_requests': [],
         };
+        _cachedTeamStats = Map<String, dynamic>.from(fallbackResult);
+        _cachedTeamStatsAt = DateTime.now();
+        return fallbackResult;
       } catch (fallbackError) {
         print('Fallback also failed: $fallbackError');
-        return {
+        final emptyResult = {
           'team_size': 0,
           'pending_approvals': 0,
           'approved_this_week': 0,
@@ -4241,6 +4592,9 @@ class OdooService {
           'team_members': [],
           'pending_requests': [],
         };
+        _cachedTeamStats = Map<String, dynamic>.from(emptyResult);
+        _cachedTeamStatsAt = DateTime.now();
+        return emptyResult;
       }
     }
   }
@@ -5214,19 +5568,40 @@ class OdooService {
 
   // Get attendance records for a specific employee
   Future<List<Map<String, dynamic>>> getEmployeeAttendance(int employeeId,
-      {bool useCache = true}) async {
+      {bool useCache = true, DateTime? dateFrom, DateTime? dateTo}) async {
     if (_userId == null || _password == null) {
       throw Exception('Not authenticated');
     }
 
     try {
       // Serve from cache if available and fresh
-      if (useCache && _employeeAttendanceCache.containsKey(employeeId)) {
+      final bool canUseCache = useCache && dateFrom == null && dateTo == null;
+      if (canUseCache && _employeeAttendanceCache.containsKey(employeeId)) {
         final cachedAt = _employeeAttendanceCachedAt[employeeId];
         if (cachedAt != null &&
             DateTime.now().difference(cachedAt) < _defaultCacheTtl) {
           return _employeeAttendanceCache[employeeId]!;
         }
+      }
+
+      final List<List<dynamic>> domain = [
+        ['employee_id', '=', employeeId],
+      ];
+
+      if (dateFrom != null) {
+        domain.add([
+          'check_in',
+          '>=',
+          _formatDateForOdoo(dateFrom.toUtc()),
+        ]);
+      }
+
+      if (dateTo != null) {
+        domain.add([
+          'check_in',
+          '<=',
+          _formatDateForOdoo(dateTo.toUtc()),
+        ]);
       }
 
       final attendanceRecords = await _callRPC('object', 'execute_kw', [
@@ -5235,11 +5610,7 @@ class OdooService {
         _password,
         'hr.attendance',
         'search_read',
-        [
-          [
-            ['employee_id', '=', employeeId],
-          ]
-        ],
+        [domain],
         {
           'fields': [
             'id',
@@ -5271,8 +5642,10 @@ class OdooService {
         }
         print('Valid records count: ${validRecords.length}');
         // cache
-        _employeeAttendanceCache[employeeId] = validRecords;
-        _employeeAttendanceCachedAt[employeeId] = DateTime.now();
+        if (canUseCache) {
+          _employeeAttendanceCache[employeeId] = validRecords;
+          _employeeAttendanceCachedAt[employeeId] = DateTime.now();
+        }
         return validRecords;
       }
       return [];

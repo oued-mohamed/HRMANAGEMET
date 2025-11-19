@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../utils/navigation_helpers.dart';
 import '../services/odoo_service.dart';
 import '../utils/app_localizations.dart';
-import '../services/user_service.dart';
-import '../data/models/user_model.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
@@ -47,15 +45,18 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
     }
   }
 
-  String _formatDateTime(String? dateTime) {
-    if (dateTime == null || dateTime == false) {
+  String _formatDateTime(dynamic dateTime) {
+    // Handle null, false (bool), or empty values
+    if (dateTime == null || dateTime == false || dateTime == '') {
       return '-';
     }
+    // Convert to String if it's not already
+    final dateTimeStr = dateTime is String ? dateTime : dateTime.toString();
     try {
-      final dt = DateTime.parse(dateTime);
+      final dt = DateTime.parse(dateTimeStr);
       return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
     } catch (e) {
-      return dateTime.toString();
+      return '-';
     }
   }
 

@@ -211,6 +211,7 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
   }
 
   /// Optimise la vérification des jours en créant un cache intelligent
+  /// GARANTIT: Tous les congés (approuvés + en attente) et jours fériés restent visibles
   Map<int, Map<String, bool>> _buildDayCache(
     DateTime firstDayOfMonth,
     DateTime lastDayOfMonth,
@@ -221,23 +222,64 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
   ) {
     final Map<int, Map<String, bool>> cache = {};
 
-    // Debug seulement pour les jours problématiques
-    final problematicDays = <int>{8, 9, 13, 14, 20, 21};
-
-    print(
-        '🔍 BUILDING DAY CACHE - Month: ${firstDayOfMonth.month}/${firstDayOfMonth.year}');
-    print('🔍 Pending leaves count: ${pendingLeaves.length}');
-    for (var i = 0; i < pendingLeaves.length; i++) {
-      var leave = pendingLeaves[i];
-      print(
-          '  Pending leave $i: ${leave['name']} - ${leave['date_from']} to ${leave['date_to']}');
-    }
-
-    // Créer des intervalles optimisés pour les congés
+    // Combiner tous les congés (approuvés + en attente) - TOUS sont préservés
     final List<Map<String, dynamic>> allLeaves = [
       ...approvedLeaves.map((leave) => {...leave, 'type': 'approved'}),
       ...pendingLeaves.map((leave) => {...leave, 'type': 'pending'}),
     ];
+
+    // OPTIMISATION: Filtrer uniquement les congés qui chevauchent le mois (même partiellement)
+    // Cela évite de vérifier des congés d'octobre pour un mois de novembre
+    final List<Map<String, dynamic>> relevantLeaves = [];
+    
+    for (var leave in allLeaves) {
+      try {
+        dynamic dateFromValue = leave['date_from'];
+        dynamic dateToValue = leave['date_to'];
+        
+        if (dateFromValue == null || dateToValue == null) {
+          // Inclure les congés sans dates pour sécurité (ne devrait pas arriver)
+          relevantLeaves.add(leave);
+          continue;
+        }
+        
+        // Parser les dates
+        String dateFromStr = dateFromValue.toString().split(' ')[0].split('T')[0];
+        String dateToStr = dateToValue.toString().split(' ')[0].split('T')[0];
+        DateTime dateFrom = DateTime.parse(dateFromStr);
+        DateTime dateTo = DateTime.parse(dateToStr);
+        
+        // Normaliser les dates à minuit UTC
+        final leaveFromOnly = DateTime.utc(dateFrom.year, dateFrom.month, dateFrom.day);
+        final leaveToOnly = DateTime.utc(dateTo.year, dateTo.month, dateTo.day);
+        
+        // Un congé est pertinent pour le mois s'il chevauche le mois (même partiellement)
+        // Condition: leaveTo >= firstDayOfMonth ET leaveFrom <= lastDayOfMonth
+        // Exemples:
+        // - Congé 15/10 au 5/11 → pertinent pour novembre (chevauche le 1er au 5)
+        // - Congé 1/11 au 30/11 → pertinent pour novembre (tout le mois)
+        // - Congé 25/11 au 10/12 → pertinent pour novembre (chevauche le 25 au 30)
+        // - Congé 1/10 au 30/10 → NON pertinent pour novembre (avant le mois)
+        // - Congé 1/12 au 30/12 → NON pertinent pour novembre (après le mois)
+        
+        final monthStart = DateTime.utc(firstDayOfMonth.year, firstDayOfMonth.month, 1);
+        final monthEnd = DateTime.utc(lastDayOfMonth.year, lastDayOfMonth.month, lastDayOfMonth.day);
+        
+        if (leaveToOnly.isAfter(monthStart.subtract(Duration(days: 1))) &&
+            leaveFromOnly.isBefore(monthEnd.add(Duration(days: 1)))) {
+          relevantLeaves.add(leave);
+        }
+      } catch (e) {
+        // En cas d'erreur de parsing, inclure le congé pour sécurité (ne pas le perdre)
+        print('⚠️ Error parsing leave dates, including it anyway: $e');
+        relevantLeaves.add(leave);
+      }
+    }
+
+    print('🔍 BUILDING DAY CACHE - Month: ${firstDayOfMonth.month}/${firstDayOfMonth.year}');
+    print('🔍 Total leaves: ${allLeaves.length} (${approvedLeaves.length} approved, ${pendingLeaves.length} pending)');
+    print('🔍 Relevant leaves for this month: ${relevantLeaves.length}');
+    print('🔍 Holidays: ${holidays.length}, Moroccan holidays: ${moroccanHolidays.length}');
 
     // Parcourir chaque jour du mois
     for (int day = 1; day <= lastDayOfMonth.day; day++) {
@@ -246,22 +288,19 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
 
       bool hasApprovedLeave = false;
       bool hasPendingLeave = false;
+      
+      // Vérifier les jours fériés (TOUS préservés, pas de filtrage)
       bool isHoliday = holidays.any((h) => _isSameDate(h, dayOnly)) ||
           moroccanHolidays.any((h) => _isSameDate(h, dayOnly));
 
-      // Vérifier seulement les congés qui peuvent affecter ce jour
-      for (var leave in allLeaves) {
+      // OPTIMISATION: Vérifier seulement les congés pertinents (au lieu de tous)
+      // Cela réduit drastiquement le nombre de vérifications
+      for (var leave in relevantLeaves) {
         if (_isDateInLeaveRange(leave, dayOnly)) {
           if (leave['type'] == 'approved') {
             hasApprovedLeave = true;
           } else {
             hasPendingLeave = true;
-          }
-
-          // Debug intelligent: seulement pour les jours problématiques
-          if (problematicDays.contains(day)) {
-            print(
-                '🔍 Day $day: Found ${leave['type']} leave: ${leave['name']} (${leave['date_from']} to ${leave['date_to']})');
           }
         }
       }
@@ -269,13 +308,19 @@ class _LeaveCalendarScreenState extends State<LeaveCalendarScreen> {
       cache[day] = {
         'hasApprovedLeave': hasApprovedLeave,
         'hasPendingLeave': hasPendingLeave,
-        'isHoliday': isHoliday,
+        'isHoliday': isHoliday, // TOUS les jours fériés préservés
       };
     }
 
-    print(
-        '🔍 CACHE BUILT - Days with pending leaves: ${cache.entries.where((e) => e.value['hasPendingLeave']!).map((e) => e.key).toList()}');
-    print('🔍 ✅ CODE UPDATED - Using correct cache logic!');
+    final daysWithPending = cache.entries.where((e) => e.value['hasPendingLeave']!).map((e) => e.key).toList();
+    final daysWithApproved = cache.entries.where((e) => e.value['hasApprovedLeave']!).map((e) => e.key).toList();
+    final daysWithHolidays = cache.entries.where((e) => e.value['isHoliday']!).map((e) => e.key).toList();
+    
+    print('🔍 CACHE BUILT:');
+    print('  - Days with pending leaves: $daysWithPending');
+    print('  - Days with approved leaves: $daysWithApproved');
+    print('  - Days with holidays: $daysWithHolidays');
+    print('🔍 ✅ OPTIMIZED - All leaves and holidays preserved!');
 
     return cache;
   }
